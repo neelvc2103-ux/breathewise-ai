@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: breathewise-ai
+    runtime: node
+    rootDir: breathewise-ai
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22.14.0"
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DEMO_MODE
+        value: "true"
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_MODEL
+        value: gemini-4-hydrogen
