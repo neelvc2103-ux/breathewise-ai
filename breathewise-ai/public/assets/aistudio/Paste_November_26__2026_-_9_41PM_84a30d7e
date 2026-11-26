@@ -1,0 +1,1848 @@
+# MASTER DEVELOPMENT PROMPT
+
+## 1. Role and Objective
+
+Act as a senior full-stack software engineer, UI/UX designer, AI engineer, database architect, cybersecurity specialist, environmental data analyst and software testing engineer.
+
+Design and develop a complete, secure, scalable, accessible, responsive and production-ready GenAI-powered web application named **BreatheWise AI**.
+
+**Tagline:** Breathe Better. Live Smarter. Together.
+
+### Problem Statement
+
+Create a GenAI-powered assistant that helps families and communities navigate severe winter smog and urban air pollution. The application should suggest low-emission daily routines, indoor air quality hacks, and sustainable alternatives tailored to their location and lifestyle, while clearly explaining the direct impact of their choices.
+
+The application must go beyond displaying AQI information. It should help users understand air pollution, make informed decisions, reduce exposure, adopt sustainable habits and understand the measurable environmental impact of their actions.
+
+Build a complete working application, not merely a frontend prototype, landing page, static dashboard or chatbot interface.
+
+---
+
+## 2. Evaluation Parameters
+
+Treat the following six parameters as primary development requirements throughout the project:
+
+1. Code Quality
+2. Security
+3. Efficiency
+4. Testing
+5. Accessibility
+6. Problem Statement Alignment
+
+Every major architectural decision and implemented feature should contribute to at least one of these parameters.
+
+Create an evaluation matrix documenting how the application satisfies each parameter, including implementation evidence and relevant test cases.
+
+---
+
+## 3. Recommended Technology Stack
+
+Use a modern, maintainable and scalable technology stack.
+
+### Frontend
+
+- Next.js with App Router
+- React
+- TypeScript with strict mode
+- Tailwind CSS
+- shadcn/ui or equivalent accessible component library
+- Lucide icons
+- Recharts for data visualization
+- React Hook Form and Zod for form validation
+
+### Backend
+
+- Next.js server-side API routes and service layer
+- RESTful API architecture
+- Zod for server-side validation
+- Centralized error handling
+- Structured logging
+
+### Database
+
+- PostgreSQL
+- Prisma ORM
+- Database migrations
+- Seed scripts
+- Appropriate indexing and relationships
+
+### Authentication
+
+- Auth.js or an equivalent established authentication framework
+- Email and password authentication
+- Google OAuth as an optional authentication method
+- Secure server-side session management
+
+### Artificial Intelligence
+
+- Gemini API, OpenAI API or another supported LLM provider
+- Provider-independent AI service abstraction
+- Structured JSON output
+- Context-aware recommendation generation
+- Grounded responses using environmental data and verified educational resources
+
+### External Services
+
+- Air quality data API
+- Weather data API
+- Geocoding API
+- Email service for account verification and password recovery
+- Optional map service using OpenStreetMap or another supported provider
+
+Prefer free-tier-compatible services where possible.
+
+Do not unnecessarily introduce multiple frameworks, microservices or paid dependencies.
+
+Use environment variables for all API credentials and deployment-specific configuration.
+
+---
+
+## 4. Application Architecture
+
+Follow a modular, separation-of-concerns architecture.
+
+Separate the application into:
+
+- Presentation layer
+- Authentication and authorization layer
+- API layer
+- Business logic and service layer
+- AI integration layer
+- Environmental data integration layer
+- Database access layer
+- Validation layer
+- Testing layer
+
+Avoid tightly coupled components, duplicated logic and oversized files.
+
+Use reusable components, typed interfaces, dependency abstraction and consistent naming conventions.
+
+Implement clear data flow from external environmental APIs through backend validation, normalization, AI processing and frontend presentation.
+
+---
+
+## 5. User Roles
+
+Implement role-based access control.
+
+### Individual User
+
+Can:
+
+- Access personalized dashboards.
+- Receive AI recommendations.
+- Track daily activities.
+- View environmental impact.
+- Manage preferences and notifications.
+- Access community resources.
+
+### Family Administrator
+
+Can:
+
+- Create a household.
+- Add or invite family members.
+- Manage household preferences.
+- View household-level recommendations.
+- Track shared sustainability goals.
+
+### Family Member
+
+Can:
+
+- Access authorized household features.
+- View personalized recommendations.
+- Record individual activities.
+- Participate in household challenges.
+
+### Community Moderator
+
+Can:
+
+- Moderate community posts.
+- Review reported content.
+- Manage community challenges.
+- Remove misleading or harmful content.
+
+### System Administrator
+
+Can:
+
+- Manage users and roles.
+- Monitor system health.
+- Manage educational resources.
+- Review application usage.
+- Monitor API failures and AI usage.
+- Manage reported content.
+- Review audit logs.
+
+Enforce authorization on the server. Hiding frontend elements alone must never be treated as access control.
+
+---
+
+## 6. Complete Authentication System
+
+Implement a fully functional authentication and account management system.
+
+### Authentication Features
+
+- User registration
+- User login
+- User logout
+- Email verification
+- Forgot password
+- Reset password
+- Secure session handling
+- Remember me functionality where appropriate
+- Optional Google Sign-In
+- Protected routes
+- Role-based authorization
+- Account deletion
+- Account settings
+- Password change
+- Session revocation
+
+### Registration Fields
+
+- Full name
+- Email address
+- Password
+- Confirm password
+- Acceptance of privacy policy and terms
+
+Collect additional lifestyle information during onboarding rather than registration.
+
+### Authentication Security
+
+- Hash passwords using Argon2id or bcrypt with appropriate parameters.
+- Never store plaintext passwords.
+- Use secure, HttpOnly and appropriately configured SameSite cookies.
+- Use cryptographically secure, expiring, single-use verification and reset tokens.
+- Store reset token hashes rather than raw reset tokens.
+- Prevent session fixation.
+- Implement login rate limiting.
+- Protect against brute-force attacks.
+- Prevent account enumeration.
+- Validate and sanitize input.
+- Implement CSRF protection where applicable.
+- Prevent unauthorized access to protected routes.
+
+Never implement custom cryptographic algorithms.
+
+All authentication workflows must function end-to-end.
+
+---
+
+## 7. User Onboarding and Personalization
+
+After registration, guide the user through an accessible multi-step onboarding process.
+
+Collect only information necessary for personalization.
+
+### Location Information
+
+- Country
+- State or region
+- City
+- Optional postal code
+- Optional location detection with explicit permission
+
+Always provide a manual location entry alternative.
+
+### Lifestyle Information
+
+- Work from home, office, school, college or other
+- Typical commuting distance
+- Primary transportation method
+- Typical outdoor activity
+- Exercise preferences
+- Cooking fuel or method
+- Household size
+- Availability of public transportation
+
+### Household Information
+
+- Children
+- Adults
+- Elderly family members
+- Optional presence of pollution-sensitive individuals
+
+Do not require exact medical diagnoses or unnecessary sensitive health information.
+
+### Indoor Environment
+
+- Air purifier availability
+- Ventilation type
+- Windows and balcony availability
+- Indoor cooking arrangements
+- Optional indoor air quality sensor availability
+
+### Preferences
+
+- Preferred language
+- Notification preferences
+- Sustainability goals
+- Daily schedule
+- Budget considerations
+
+Allow users to skip optional questions, update preferences and withdraw consent later.
+
+---
+
+## 8. Landing Page
+
+Create a visually engaging, informative landing page.
+
+Include:
+
+- Application branding
+- Hero section
+- Clear explanation of the problem
+- Application benefits
+- Air pollution awareness
+- Overview of AI-powered features
+- How the application works
+- Sustainability and community features
+- Accessibility statement
+- Frequently asked questions
+- Login and registration buttons
+- Privacy policy
+- Terms and conditions
+- Contact or feedback section
+
+Allow unauthenticated users to explore basic air quality information without creating an account.
+
+Do not fabricate testimonials, user counts or environmental achievements.
+
+---
+
+## 9. Personalized Air Quality Dashboard
+
+Build a comprehensive dashboard displaying current environmental conditions.
+
+### Environmental Information
+
+- Current AQI
+- AQI category
+- PM2.5
+- PM10
+- Nitrogen dioxide
+- Sulfur dioxide
+- Carbon monoxide
+- Ozone
+- Temperature
+- Humidity
+- Wind speed
+- Weather conditions
+
+Display pollutants only when available from the selected provider.
+
+### Dashboard Components
+
+- Current air quality status
+- Location selector
+- Data source and last updated timestamp
+- Historical air quality trends
+- Available air quality forecasts
+- Pollutant breakdown
+- Outdoor activity recommendations
+- Personalized daily action cards
+- Household safety recommendations
+- Sustainable alternative suggestions
+- Personal environmental impact summary
+- Quick access to AI assistant
+- Important alerts
+
+Use the AQI standard appropriate for the location, such as India's National AQI or the US AQI.
+
+Clearly identify the standard being used.
+
+Never silently combine incompatible AQI scales.
+
+Use accessible charts, labels, legends and textual explanations.
+
+---
+
+## 10. GenAI-Powered Personal Assistant
+
+This is the core functionality of the application.
+
+Develop an intelligent conversational assistant that provides recommendations based on the user's actual environmental conditions and lifestyle.
+
+### AI Context
+
+The AI assistant should consider:
+
+- Current location
+- Current AQI and pollutants
+- Available weather information
+- Available air quality forecasts
+- Season
+- Time of day
+- Household preferences
+- User's daily routine
+- Transportation options
+- Indoor environment
+- Budget constraints
+- Sustainability goals
+- Relevant user-authorized conversation context
+
+Only send necessary information to the AI provider.
+
+Never send passwords, authentication tokens, unnecessary personal identifiers or unrelated private information.
+
+### Assistant Capabilities
+
+The AI assistant must:
+
+- Explain current air pollution conditions in simple language.
+- Suggest personalized daily schedules.
+- Recommend safer outdoor activity windows when supported by data.
+- Suggest low-emission commuting alternatives.
+- Recommend practical indoor air quality improvements.
+- Generate winter smog preparedness plans.
+- Recommend affordable sustainability alternatives.
+- Explain the environmental impact of suggested actions.
+- Answer follow-up questions.
+- Adapt recommendations when environmental conditions change.
+- Explain relevant uncertainties and limitations.
+
+### Example Questions
+
+- Is it safe to go for a morning walk today?
+- Should my children play outdoors?
+- When should I open my windows?
+- How can I reduce indoor pollution without buying an expensive purifier?
+- Should I travel by car, bicycle or public transportation today?
+- How can my family reduce our contribution to air pollution?
+- What precautions should elderly family members take?
+- Why does air pollution increase during winter?
+- How much CO₂ can I avoid by changing my commute?
+- Generate a sustainable routine for my household.
+
+### Structured AI Recommendations
+
+Each AI recommendation should contain:
+
+- Recommendation title
+- Suggested action
+- Recommended time, if supported by data
+- Reason for recommendation
+- Personal relevance
+- Expected exposure-related benefit
+- Expected environmental benefit
+- Estimated cost
+- Difficulty level
+- Supporting data or source
+- Uncertainty or limitations
+- Relevant safety precautions
+
+Validate AI-generated structured responses before rendering them.
+
+### AI Safety Requirements
+
+- Do not allow the AI to invent current AQI readings.
+- Do not invent environmental measurements.
+- Do not fabricate citations.
+- Do not present uncertain estimates as established facts.
+- Do not diagnose medical conditions.
+- Do not recommend unsafe home remedies.
+- Do not claim that a particular activity guarantees safety.
+- Distinguish general environmental guidance from professional medical advice.
+- Ground numerical claims in verified data or deterministic calculation services.
+- Protect against prompt injection.
+- Treat external content and user messages as untrusted data.
+- Implement AI request limits and conversation size limits.
+
+Provide a deterministic fallback recommendation engine when the AI provider is unavailable.
+
+---
+
+## 11. Smart Daily Routine Planner
+
+Create an interactive personalized daily routine generator.
+
+The planner should adapt to environmental conditions and lifestyle.
+
+### Routine Categories
+
+- Morning activities
+- School or college travel
+- Office commuting
+- Outdoor exercise
+- Household chores
+- Cooking
+- Home ventilation
+- Shopping
+- Evening activities
+- Nighttime preparation
+
+### Planner Features
+
+- AI-generated daily schedule
+- Customizable activity times
+- Personal and household routines
+- Low-emission alternatives
+- Indoor alternatives
+- Air quality warnings
+- Activity completion tracking
+- Routine regeneration when conditions change
+- Explanation behind each recommendation
+
+### Example Scenario
+
+A user living in a city experiencing severe winter smog has a morning jogging routine and travels to work by car.
+
+The application should:
+
+- Identify elevated pollution conditions using available data.
+- Suggest an indoor exercise alternative or a lower-exposure period when supported by forecasts.
+- Recommend carpooling, public transportation or remote working where practical.
+- Explain how these choices may reduce exposure or emissions.
+- Allow the user to adapt the generated schedule.
+
+Do not assume that afternoon or evening air quality is always better than morning air quality.
+
+Base time-specific advice on available local data.
+
+---
+
+## 12. Indoor Air Quality Assistant
+
+Create a dedicated indoor air quality improvement module.
+
+### Features
+
+- Room-wise indoor air quality checklist
+- Kitchen pollution recommendations
+- Ventilation recommendations
+- Indoor pollution source identification
+- Air purifier maintenance reminders
+- Dust reduction suggestions
+- Smoke avoidance recommendations
+- Affordable indoor air quality improvements
+- Indoor activity suggestions
+
+### Supported Areas
+
+- Bedroom
+- Living room
+- Kitchen
+- Study room
+- Office
+- Other household spaces
+
+Categorize recommendations into:
+
+- No-cost solutions
+- Low-cost solutions
+- Moderate-cost solutions
+- Equipment-based solutions
+
+Base recommendations on reliable environmental and public health guidance.
+
+Avoid promoting ineffective air purification hacks, ozone-generating devices, unsafe DIY equipment or houseplants as substitutes for effective air filtration.
+
+Never present outdoor AQI as a measured indoor AQI.
+
+If indoor sensors are unavailable, clearly label the module as advisory rather than measured.
+
+---
+
+## 13. Sustainable Alternatives Engine
+
+Develop a recommendation engine that suggests practical alternatives to pollution-generating activities.
+
+Cover:
+
+- Private vehicle usage
+- Unnecessary vehicle idling
+- Transportation choices
+- Electricity consumption
+- Household energy usage
+- Waste management
+- Open waste burning
+- Shopping habits
+- Cooking practices
+- Delivery consolidation
+- Remote work opportunities
+
+For each alternative, display:
+
+- Current activity
+- Suggested alternative
+- Estimated environmental benefit
+- Financial considerations
+- Convenience level
+- Required effort
+- Explanation
+
+Prioritize realistic alternatives based on location, affordability, accessibility and availability.
+
+Do not prioritize a lower-emission activity if it would unnecessarily increase the user's pollution exposure during severe smog.
+
+---
+
+## 14. Environmental Impact Calculator
+
+Implement a transparent, deterministic environmental impact calculation engine.
+
+The AI must explain the calculations, not invent the numerical results.
+
+### Supported Calculations
+
+- Estimated CO₂e emissions avoided
+- Fuel consumption avoided
+- Private vehicle distance avoided
+- Energy savings
+- Sustainable trips completed
+- Daily, weekly and monthly impact
+- Household-level environmental impact
+- Community-level aggregated impact
+
+### Example Calculation
+
+Avoided emissions = Baseline activity emissions − Alternative activity emissions
+
+Transportation emissions = Distance × Applicable emission factor
+
+Use documented emission factors with:
+
+- Source
+- Region
+- Applicable transport or activity type
+- Units
+- Publication year
+- Assumptions
+- Relevant occupancy or electricity-generation assumptions
+
+Use reliable sources such as government environmental agencies, recognized emissions-factor databases or published research.
+
+### Important Distinctions
+
+Clearly distinguish between:
+
+- Reducing personal pollution exposure
+- Reducing local air pollutant emissions
+- Reducing greenhouse gas emissions
+
+Do not imply that avoiding a specific quantity of CO₂ directly decreases local AQI by a measurable amount.
+
+Do not display invented percentages of health risk reduction.
+
+Do not calculate PM2.5 reductions without an appropriate validated methodology.
+
+### Impact Visualization
+
+Display:
+
+- Daily impact
+- Weekly impact
+- Monthly impact
+- Cumulative impact
+- Comparison with the user's historical activities
+- Household contribution
+- Community contribution
+- Sustainability milestones
+
+Clearly label modeled and estimated values.
+
+Prevent duplicate activity logging from inflating impact totals.
+
+---
+
+## 15. Family Management System
+
+Allow users to create and manage a household.
+
+### Features
+
+- Create household
+- Invite family members securely
+- Accept or decline invitations
+- Assign permitted household roles
+- Manage household preferences
+- Create shared routines
+- Set household sustainability goals
+- View family-level environmental recommendations
+- Track household activities
+- View combined environmental impact
+
+Provide suitable recommendations for different household needs, including children, elderly adults and pollution-sensitive individuals.
+
+Protect family members' privacy.
+
+Do not expose private conversations or sensitive personal preferences to other household members without authorization.
+
+Do not create direct child accounts without appropriate age and consent safeguards.
+
+---
+
+## 16. Community Module
+
+Create a community-driven sustainability platform.
+
+### Features
+
+- Location-based communities
+- Community announcements
+- Community discussions
+- Local sustainability initiatives
+- Shared low-emission challenges
+- Community environmental goals
+- Educational posts
+- Reporting of misleading or inappropriate content
+- Moderator controls
+
+### Example Challenges
+
+- Car-Free Day
+- Public Transport Week
+- No Vehicle Idling Challenge
+- Reduce Household Energy Usage
+- Avoid Open Waste Burning
+- Sustainable Commute Challenge
+
+Allow users to participate voluntarily and record their contributions.
+
+Use privacy-preserving aggregate statistics.
+
+Do not reveal exact residential locations or individual sensitive information to community members.
+
+Label unverified community pollution reports as unverified.
+
+---
+
+## 17. Air Quality Alerts and Notifications
+
+Implement a complete notification system.
+
+### Notification Types
+
+- Poor air quality alerts
+- Severe smog alerts
+- Available forecast-based warnings
+- Personalized outdoor activity suggestions
+- Household routine reminders
+- Air purifier maintenance reminders
+- Sustainability challenge updates
+- Weekly environmental impact reports
+
+### Notification Channels
+
+- In-app notifications
+- Optional email notifications
+- Optional browser notifications with explicit permission
+
+### Requirements
+
+- User-configurable alert thresholds
+- Quiet hours
+- Notification preferences
+- Duplicate notification prevention
+- Timezone-aware scheduling
+- Read and unread status
+- Clear notification history
+- Ability to unsubscribe
+
+Do not claim to continuously monitor conditions unless a working scheduled backend process is implemented.
+
+---
+
+## 18. Educational and Awareness Center
+
+Create an educational section explaining:
+
+- What is air pollution?
+- What is AQI?
+- PM2.5 vs PM10
+- Causes of urban air pollution
+- Winter smog
+- Temperature inversion
+- Vehicle emissions
+- Industrial pollution
+- Indoor air pollution
+- Sustainable transportation
+- Air purifier basics
+- Ventilation considerations
+- Environmental impact of daily activities
+
+Use simple explanations, illustrations, accessible infographics and expandable content.
+
+Include references to reliable environmental and public health organizations.
+
+Create a searchable knowledge base that can also support grounded AI responses.
+
+---
+
+## 19. Analytics and Gamification
+
+Create an optional, non-manipulative sustainability tracking system.
+
+### Features
+
+- Completed activities
+- Sustainability points
+- Personal achievements
+- Household achievements
+- Challenge progress
+- Weekly progress
+- Monthly progress
+- Environmental impact milestones
+
+### Example Badges
+
+- Eco Commuter
+- Clean Air Champion
+- Sustainable Household
+- Energy Saver
+- Car-Free Contributor
+
+Reward environmentally responsible actions without encouraging users to exercise outdoors or take unnecessary risks during severe pollution.
+
+Avoid misleading or exaggerated environmental claims.
+
+---
+
+## 20. Admin Dashboard
+
+Create a separate protected administration panel.
+
+Include:
+
+- User management
+- Role management
+- Community moderation
+- Educational content management
+- Emission factor management
+- API availability monitoring
+- AI request usage
+- Error statistics
+- Cache statistics
+- Feedback management
+- Audit logs
+- System health information
+
+Administrators should not automatically have unrestricted access to users' private conversations.
+
+Log sensitive administrative actions.
+
+---
+
+## 21. UI/UX Design Requirements
+
+Create a modern environmental technology application with a calm, professional and trustworthy visual identity.
+
+### Design Style
+
+- Minimalistic
+- Clean
+- Modern
+- Nature-inspired
+- Information-focused
+- Responsive
+- Professional
+
+### Suggested Color Palette
+
+- Primary green: #15803D
+- Deep forest: #14532D
+- Soft teal: #0D9488
+- Light background: #F8FAFC
+- Dark background: #0F172A
+- Warning amber: #F59E0B
+- Critical red: #DC2626
+
+Use separate semantic colors appropriate to the selected AQI standard.
+
+Ensure all text and component color combinations meet accessibility requirements.
+
+### UI Components
+
+- Responsive sidebar
+- Top navigation
+- Mobile navigation
+- Dashboard cards
+- AQI gauge
+- Historical trend charts
+- Progress indicators
+- Accessible modal dialogs
+- Forms
+- Search components
+- Toast notifications
+- Alert banners
+- AI chat interface
+- Skeleton loaders
+- Tooltips
+- Empty states
+- Error states
+- Confirmation dialogs
+
+Support light mode, dark mode and system theme.
+
+Avoid excessive animations, generic stock imagery, visual clutter and unnecessary decorative components.
+
+Do not use placeholder buttons or non-functional navigation.
+
+---
+
+## 22. Application Pages
+
+Implement the following pages with working navigation and appropriate access control:
+
+### Public Pages
+
+- Home
+- About
+- Explore Air Quality
+- Educational Resources
+- FAQ
+- Privacy Policy
+- Terms and Conditions
+- Contact and Feedback
+
+### Authentication Pages
+
+- Login
+- Register
+- Verify Email
+- Forgot Password
+- Reset Password
+
+### User Pages
+
+- Onboarding
+- Dashboard
+- AI Assistant
+- Daily Routine Planner
+- Air Quality Explorer
+- Indoor Air Quality
+- Sustainable Alternatives
+- Impact Calculator
+- Activity History
+- Family Management
+- Community
+- Challenges
+- Achievements
+- Notifications
+- Profile
+- Settings
+
+### Administrative Pages
+
+- Admin Dashboard
+- User Management
+- Content Management
+- Community Moderation
+- System Monitoring
+- Audit Logs
+
+Implement meaningful 404, unauthorized, maintenance and unexpected error pages.
+
+---
+
+## 23. Database Design
+
+Design a properly normalized relational database.
+
+Create appropriate models for:
+
+- User
+- Account
+- Session
+- VerificationToken
+- PasswordResetToken
+- UserProfile
+- UserPreference
+- Location
+- Household
+- HouseholdMember
+- HouseholdInvitation
+- AirQualityReading
+- WeatherReading
+- AIConversation
+- AIMessage
+- Recommendation
+- DailyRoutine
+- RoutineActivity
+- ActivityLog
+- EmissionFactor
+- EnvironmentalImpact
+- Community
+- CommunityMember
+- CommunityPost
+- CommunityReport
+- Challenge
+- ChallengeParticipation
+- Achievement
+- UserAchievement
+- Notification
+- NotificationPreference
+- EducationalResource
+- Feedback
+- AuditLog
+
+Adapt the final schema based on actual implementation requirements.
+
+### Database Requirements
+
+- Appropriate primary keys
+- Foreign key constraints
+- Unique constraints
+- Required-field validation
+- Appropriate indexing
+- Transaction support
+- Referential integrity
+- Created and updated timestamps
+- Safe deletion behavior
+- Pagination support
+- Data retention policies
+
+Prevent duplicate membership, duplicate activity records and inconsistent impact calculations.
+
+Create a complete ER diagram and document all major relationships.
+
+---
+
+## 24. API Design
+
+Develop versioned, documented and properly secured backend endpoints.
+
+Suggested API groups:
+
+- /api/v1/auth
+- /api/v1/users
+- /api/v1/profile
+- /api/v1/air-quality
+- /api/v1/weather
+- /api/v1/locations
+- /api/v1/assistant
+- /api/v1/recommendations
+- /api/v1/routines
+- /api/v1/activities
+- /api/v1/impact
+- /api/v1/households
+- /api/v1/communities
+- /api/v1/challenges
+- /api/v1/notifications
+- /api/v1/resources
+- /api/v1/admin
+- /api/v1/health
+
+Use the authentication framework's required routes where applicable.
+
+### API Requirements
+
+- Consistent response structures
+- Appropriate HTTP methods
+- Correct HTTP status codes
+- Authentication
+- Authorization
+- Input validation
+- Pagination
+- Rate limiting
+- Error handling
+- API documentation
+- Request timeout management
+
+Do not expose internal stack traces, database errors or sensitive configuration in production responses.
+
+Provide OpenAPI or equivalent API documentation with request and response examples.
+
+---
+
+## 25. Code Quality Requirements
+
+Follow professional software engineering practices.
+
+### Mandatory Requirements
+
+- TypeScript strict mode
+- Meaningful variable and function names
+- Modular architecture
+- Separation of concerns
+- Reusable components
+- DRY principles
+- Appropriate SOLID principles
+- Consistent formatting
+- ESLint
+- Prettier
+- Centralized configuration
+- Centralized error handling
+- Typed API responses
+- Avoidance of unnecessary dependencies
+- No dead code
+- No unused imports
+- No hardcoded secrets
+- No unexplained magic numbers
+- No unfinished core functionality
+
+### Code Comments
+
+Write meaningful comments explaining:
+
+- Complex algorithms
+- Business logic
+- Environmental impact formulas
+- Unit conversions
+- Security-sensitive decisions
+- AI prompt construction
+- External API integration
+- Caching strategies
+- Authentication and authorization flows
+- Unusual implementation decisions
+- Error recovery mechanisms
+
+Use JSDoc for exported services, complex functions and important interfaces.
+
+Explain why a decision was made rather than merely repeating what the code does.
+
+Do not excessively comment obvious code.
+
+The codebase should be understandable to a student developer who is unfamiliar with the project.
+
+---
+
+## 26. Security Requirements
+
+Treat security as a core architectural requirement.
+
+Follow relevant OWASP guidance and secure development practices.
+
+Protect against:
+
+- SQL injection
+- Cross-site scripting
+- Cross-site request forgery
+- Broken access control
+- Insecure direct object references
+- Server-side request forgery
+- Mass assignment vulnerabilities
+- Brute-force attacks
+- Session hijacking
+- Credential leakage
+- Prompt injection
+- API abuse
+- Sensitive data exposure
+
+### Security Implementation
+
+- Server-side validation
+- Parameterized database queries through the ORM
+- Secure authentication
+- Resource ownership validation
+- Role-based authorization
+- Rate limiting
+- Security headers
+- Content Security Policy
+- Restricted CORS configuration where needed
+- Secure cookie configuration
+- Secure secret management
+- HTTPS in production
+- Dependency vulnerability scanning
+- Sensitive data redaction in logs
+- Input and output sanitization
+- Least-privilege access
+- Audit logging
+
+Do not rely exclusively on client-side validation.
+
+Treat AI-generated content as untrusted output.
+
+Never grant the AI unrestricted database access or the ability to execute arbitrary commands.
+
+Keep all privileged credentials and AI provider API keys server-side.
+
+Create a threat model and document major risks and mitigations.
+
+---
+
+## 27. Efficiency and Performance
+
+Optimize the application for realistic usage and limited external API quotas.
+
+### Frontend Optimization
+
+- Lazy loading
+- Code splitting
+- Optimized assets
+- Minimal unnecessary re-rendering
+- Server-side rendering where useful
+- Appropriate use of client and server components
+- Debounced search
+- Accessible skeleton loaders
+- Optimized chart rendering
+
+### Backend Optimization
+
+- Database indexing
+- Query optimization
+- Avoid N+1 queries
+- Pagination
+- Connection pooling
+- Request deduplication
+- Appropriate caching
+- Timeout handling
+- Bounded retries with exponential backoff
+- Efficient background jobs where required
+
+### AI Optimization
+
+- Limit unnecessary AI calls.
+- Use compact contextual prompts.
+- Summarize lengthy conversations where appropriate.
+- Use deterministic calculations instead of AI for arithmetic.
+- Cache suitable non-sensitive recommendations.
+- Avoid sharing personalized caches across users.
+- Track token usage.
+- Implement configurable AI usage limits.
+- Use lightweight fallback logic when AI is unavailable.
+
+### Air Quality API Optimization
+
+Cache environmental readings according to provider update frequency.
+
+Respect provider usage limits and licensing requirements.
+
+Clearly indicate when displayed environmental data is cached or outdated.
+
+Document the performance strategy and measure actual performance rather than inventing benchmark results.
+
+---
+
+## 28. Accessibility Requirements
+
+Target WCAG 2.2 Level AA accessibility.
+
+Implement:
+
+- Semantic HTML
+- Keyboard navigation
+- Screen reader support
+- Accessible form labels
+- Accessible validation messages
+- Appropriate ARIA attributes
+- Visible keyboard focus
+- Sufficient color contrast
+- Meaningful alternative text
+- Skip navigation links
+- Logical heading hierarchy
+- Accessible modal dialogs
+- Accessible charts and data tables
+- Reduced-motion support
+- Responsive text scaling
+- Adequate touch target sizes
+- Accessible notification announcements
+
+Never communicate air quality severity through color alone.
+
+Always include:
+
+- AQI numerical value
+- Textual severity category
+- Relevant icon or indicator
+- Plain-language explanation
+
+Provide simplified explanations for users with limited environmental or technical knowledge.
+
+Prepare the application for localization, including English, Hindi and Gujarati as suggested initial languages.
+
+Do not claim accessibility compliance solely because automated tools report no issues.
+
+Perform manual keyboard and screen reader checks where possible.
+
+---
+
+## 29. Testing Requirements
+
+Implement a comprehensive testing strategy.
+
+### Unit Testing
+
+Use Vitest or Jest.
+
+Test:
+
+- AQI category mapping
+- Emission calculations
+- Unit conversions
+- Recommendation rules
+- Input validation
+- Notification thresholds
+- Date and timezone handling
+- AI response parsing
+- Cache key construction
+- Permission logic
+
+### Integration Testing
+
+Test:
+
+- Authentication workflows
+- Database operations
+- API endpoints
+- Authorization
+- Household invitations
+- Activity logging
+- Impact calculations
+- AI provider integration
+- External API error handling
+
+### End-to-End Testing
+
+Use Playwright.
+
+Test complete user journeys:
+
+- Registration and email verification
+- Login and logout
+- Password recovery
+- User onboarding
+- Dashboard access
+- Location selection
+- AI assistant interaction
+- Routine generation
+- Activity completion
+- Environmental impact tracking
+- Household creation
+- Community participation
+- Notification settings
+- Account deletion
+- Administrative access
+
+### Security Testing
+
+Test:
+
+- Unauthorized route access
+- Cross-account resource access
+- Invalid authentication tokens
+- Expired reset tokens
+- Input injection attempts
+- Rate limiting
+- Privilege escalation attempts
+- Prompt injection handling
+
+### Accessibility Testing
+
+Use axe-core or an equivalent tool.
+
+Test:
+
+- Keyboard navigation
+- Form accessibility
+- Color contrast
+- Focus management
+- Screen reader semantics
+- Chart alternatives
+- Responsive layouts
+
+### Failure Scenario Testing
+
+Test:
+
+- Air quality API unavailable
+- AI provider unavailable
+- Invalid AI output
+- Weather API timeout
+- Database operation failure
+- Missing environmental readings
+- Stale cached data
+- Duplicate activity submissions
+
+Target at least 80% meaningful coverage of core business logic.
+
+Mock external services in automated tests.
+
+Do not require paid API calls for the default automated test suite.
+
+Report actual test execution results. Never claim that unexecuted tests have passed.
+
+---
+
+## 30. Error Handling and Reliability
+
+Implement graceful degradation.
+
+The application must remain useful when external services fail.
+
+### Example Failure Handling
+
+If the AI API fails:
+
+- Display a clear service availability message.
+- Use deterministic recommendations.
+- Allow the user to retry.
+
+If the air quality API fails:
+
+- Display the last valid cached reading when available.
+- Show its timestamp.
+- Clearly indicate that the data may be outdated.
+- Avoid precise activity recommendations based on unavailable current data.
+
+If the database fails:
+
+- Provide a user-friendly error.
+- Log appropriate diagnostic information securely.
+- Avoid exposing database internals.
+
+Implement application-level error boundaries, structured error handling and appropriate recovery options.
+
+Never silently replace failed live data with fictional data.
+
+---
+
+## 31. Demo Mode
+
+Create an explicitly labeled demonstration mode for evaluators.
+
+Include:
+
+- Seeded demonstration accounts
+- Sample households
+- Sample environmental readings
+- Sample winter smog scenarios
+- Sample routines
+- Sample activities
+- Sample environmental impact records
+- Sample community challenges
+
+Include scenarios demonstrating:
+
+- Severe winter smog
+- Moderate air pollution
+- Improved air quality
+- External API failure
+- AI service failure
+
+Clearly distinguish demonstration data from actual live data.
+
+Do not hardcode demonstration credentials into production deployment.
+
+Allow judges to explore core functionality without needing paid API subscriptions.
+
+Demo mode must exercise real application logic rather than simply displaying static screenshots.
+
+---
+
+## 32. Project Directory Structure
+
+Use a logical structure similar to:
+
+```text
+breathewise-ai/
+├── src/
+│   ├── app/
+│   │   ├── (public)/
+│   │   ├── (auth)/
+│   │   ├── (dashboard)/
+│   │   ├── admin/
+│   │   └── api/
+│   ├── components/
+│   │   ├── ui/
+│   │   ├── dashboard/
+│   │   ├── assistant/
+│   │   ├── charts/
+│   │   └── forms/
+│   ├── features/
+│   │   ├── air-quality/
+│   │   ├── routines/
+│   │   ├── impact/
+│   │   ├── households/
+│   │   └── community/
+│   ├── services/
+│   │   ├── ai/
+│   │   ├── weather/
+│   │   ├── air-quality/
+│   │   ├── emissions/
+│   │   └── notifications/
+│   ├── lib/
+│   ├── hooks/
+│   ├── validators/
+│   ├── repositories/
+│   ├── types/
+│   ├── config/
+│   └── utils/
+├── prisma/
+│   ├── schema.prisma
+│   ├── migrations/
+│   └── seed.ts
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   ├── e2e/
+│   ├── security/
+│   └── accessibility/
+├── docs/
+├── public/
+├── scripts/
+├── .github/workflows/
+├── .env.example
+├── .gitignore
+├── Dockerfile
+├── docker-compose.yml
+├── README.md
+├── SECURITY.md
+├── CONTRIBUTING.md
+├── CHANGELOG.md
+└── package.json
+```
+
+Adjust the structure to suit actual framework conventions without sacrificing modularity.
+
+---
+
+## 33. Documentation Requirements
+
+Create complete technical and user-facing documentation.
+
+### README.md
+
+Include:
+
+- Project introduction
+- Problem statement
+- Proposed solution
+- Key features
+- Technology stack
+- Architecture overview
+- Prerequisites
+- Installation instructions
+- Environment variable setup
+- Database setup
+- Migration instructions
+- Seed instructions
+- Running locally
+- Testing instructions
+- Production build instructions
+- Deployment guide
+- Troubleshooting
+- Known limitations
+
+### Additional Documentation Files
+
+Create:
+
+```text
+docs/
+├── ARCHITECTURE.md
+├── DATABASE.md
+├── API.md
+├── AI_INTEGRATION.md
+├── PROMPT_ENGINEERING.md
+├── ENVIRONMENTAL_CALCULATIONS.md
+├── DATA_SOURCES.md
+├── AUTHENTICATION.md
+├── SECURITY.md
+├── THREAT_MODEL.md
+├── PRIVACY.md
+├── ACCESSIBILITY.md
+├── TESTING.md
+├── PERFORMANCE.md
+├── DEPLOYMENT.md
+├── USER_GUIDE.md
+├── ADMIN_GUIDE.md
+├── EVALUATION_MATRIX.md
+├── DEMO_GUIDE.md
+└── FUTURE_SCOPE.md
+```
+
+### Documentation Content
+
+Explain:
+
+- What each major module does.
+- Why it exists.
+- How it works.
+- How different modules communicate.
+- Important functions and classes.
+- Database relationships.
+- AI data flow.
+- AI prompt construction.
+- Recommendation generation methodology.
+- Environmental calculation formulas.
+- Emission factor sources.
+- Security measures.
+- Performance considerations.
+- Testing methodology.
+- Known limitations.
+- Future improvements.
+
+Use Mermaid diagrams where appropriate.
+
+Create:
+
+- System architecture diagram
+- Entity relationship diagram
+- Data flow diagram
+- User authentication sequence diagram
+- AI recommendation sequence diagram
+- Environmental impact calculation flowchart
+
+Keep documentation synchronized with the actual implemented code.
+
+---
+
+## 34. Environment Configuration
+
+Provide a complete `.env.example` containing all required configuration keys.
+
+Example:
+
+```env
+DATABASE_URL=
+AUTH_SECRET=
+APP_URL=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+AI_PROVIDER=
+AI_API_KEY=
+AI_MODEL=
+AIR_QUALITY_API_KEY=
+WEATHER_API_KEY=
+GEOCODING_API_KEY=
+EMAIL_API_KEY=
+EMAIL_FROM=
+CACHE_URL=
+DEMO_MODE=false
+```
+
+Adapt these variables to the actual selected libraries.
+
+Document which variables are mandatory and which are optional.
+
+Validate required configuration during application startup.
+
+Never expose actual credentials in the repository.
+
+---
+
+## 35. Deployment and CI/CD
+
+Make the project deployable locally and to an appropriate cloud platform.
+
+Provide:
+
+- Dockerfile
+- Docker Compose configuration
+- PostgreSQL setup
+- Environment configuration
+- Database migration instructions
+- Production build process
+- Health check endpoint
+- Deployment documentation
+- Database backup considerations
+
+Implement GitHub Actions or an equivalent CI pipeline.
+
+The pipeline should execute:
+
+1. Dependency installation using the lockfile.
+2. Formatting checks.
+3. Linting.
+4. Type checking.
+5. Unit tests.
+6. Integration tests.
+7. Production build.
+8. Security dependency checks.
+9. End-to-end and accessibility checks where supported.
+
+Do not claim successful deployment unless deployment has actually been completed and verified.
+
+---
+
+## 36. Problem Statement Alignment
+
+Every major feature must directly support the original problem statement.
+
+Prioritize these five core capabilities:
+
+1. Understanding current local air pollution conditions.
+2. Generating personalized low-emission daily routines.
+3. Recommending safe, practical indoor air quality improvements.
+4. Suggesting accessible sustainable alternatives.
+5. Clearly explaining the direct environmental and exposure-related impact of user choices.
+
+Do not let secondary features such as gamification, administrative analytics or social networking overshadow the core GenAI functionality.
+
+The application should demonstrate a complete workflow:
+
+**Observe → Understand → Recommend → Act → Measure → Improve**
+
+---
+
+## 37. Development Phases
+
+Implement the application in the following sequence.
+
+### Phase 1: Foundation
+
+- Project initialization
+- Architecture
+- Database schema
+- Environment configuration
+- Authentication
+- Authorization
+- Shared UI components
+
+### Phase 2: Environmental Intelligence
+
+- Air quality integration
+- Weather integration
+- Location selection
+- Dashboard
+- Historical data
+- Environmental data normalization
+
+### Phase 3: Core GenAI Features
+
+- AI assistant
+- Context construction
+- Recommendation engine
+- Routine planner
+- Indoor air quality assistant
+- Sustainable alternatives
+- AI fallback system
+
+### Phase 4: Action and Impact
+
+- Activity tracking
+- Emission factor management
+- Environmental impact calculations
+- Impact dashboard
+- Progress tracking
+
+### Phase 5: Family and Community
+
+- Household management
+- Community functionality
+- Challenges
+- Notifications
+- Administrative functionality
+
+### Phase 6: Quality Assurance
+
+- Security review
+- Automated testing
+- Accessibility review
+- Performance optimization
+- Error handling
+- Production build verification
+
+### Phase 7: Documentation and Deployment
+
+- Documentation
+- Architecture diagrams
+- API documentation
+- Demo mode
+- Deployment configuration
+- Final evaluation matrix
+
+Complete and validate each phase before proceeding to dependent functionality.
+
+---
+
+## 38. Evaluation Matrix
+
+Create a detailed evaluation report covering the following criteria.
+
+| Parameter | Required Evidence |
+|---|---|
+| Code Quality | Modular architecture, typed interfaces, linting, meaningful comments and maintainable code |
+| Security | Secure authentication, authorization, input validation, threat model and security test results |
+| Efficiency | Caching, query optimization, API usage management and measured performance |
+| Testing | Unit, integration, end-to-end, security and accessibility tests |
+| Accessibility | Keyboard navigation, screen reader support, contrast checks and accessible alternatives |
+| Problem Statement Alignment | Personalized routines, indoor air quality guidance, sustainable alternatives and transparent impact calculations |
+
+For each criterion, document:
+
+- Implemented functionality
+- Relevant source files
+- Architectural decisions
+- Supporting test cases
+- Actual verification results
+- Remaining limitations
+
+Do not fabricate scores, compliance claims or test results.
+
+---
+
+## 39. Final Acceptance Criteria
+
+The application is considered complete only when:
+
+- Users can register and log in successfully.
+- Authentication and authorization work correctly.
+- Users can complete and modify their profiles.
+- Environmental data is retrieved and displayed correctly.
+- AQI standards and data sources are clearly identified.
+- The AI assistant uses real environmental context.
+- Users receive meaningful personalized recommendations.
+- Daily routines can be generated and tracked.
+- Indoor air quality recommendations are practical and safe.
+- Sustainable alternatives are personalized.
+- Environmental calculations are transparent and reproducible.
+- Household management works.
+- Community functionality works.
+- Notification preferences work.
+- The application is responsive.
+- Core accessibility requirements are satisfied.
+- Error scenarios are handled gracefully.
+- Tests are implemented and executed.
+- Security-sensitive functionality is reviewed.
+- Documentation is complete.
+- The production build succeeds.
+- No core feature contains placeholder functionality.
+
+---
+
+## 40. Final Instructions to the AI Coding Agent
+
+Do not simply describe how to build this application.
+
+Actually create the application, its directory structure, source files, database schema, API endpoints, UI components, authentication workflows, AI integration, tests, configuration and documentation.
+
+Do not generate only a landing page or mock dashboard.
+
+Do not leave essential features as TODO comments.
+
+Do not use static JSON to impersonate real API integrations.
+
+Do not fabricate test results, environmental data, citations or deployment status.
+
+Make reasonable architectural decisions independently and document their rationale.
+
+If a feature requires external credentials that are unavailable, implement the integration, provide clear configuration instructions and supply a separately labeled mock or demo implementation for testing.
+
+Install required dependencies where the execution environment permits it.
+
+Run available linting, formatting, type checking, tests and production build commands.
+
+Fix identified errors rather than merely reporting them.
+
+Review the application for security vulnerabilities, accessibility issues, inefficient logic and misalignment with the problem statement.
+
+If execution limits prevent completion of the entire project, prioritize the complete core user journey and explicitly document unfinished secondary features.
+
+Preserve existing working functionality while making changes.
+
+At the end, provide:
+
+1. Complete implementation summary.
+2. Final project directory structure.
+3. Local installation and startup commands.
+4. Environment configuration instructions.
+5. Demo mode instructions.
+6. Database setup instructions.
+7. Implemented feature list.
+8. Actual testing results.
+9. Security implementation summary.
+10. Accessibility implementation summary.
+11. Performance optimization summary.
+12. Evaluation parameter mapping.
+13. Known limitations.
+14. Future enhancement opportunities.
+
+Build BreatheWise AI as a meaningful, functional and technically robust solution that families and communities can use to make better decisions during winter smog and urban air pollution.

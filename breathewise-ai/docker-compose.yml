@@ -1,0 +1,37 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production-32-chars-min}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      DATABASE_URL: postgresql://breathewise:breathewise@postgres:5432/breathewise
+    volumes:
+      - breathewise_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: breathewise
+      POSTGRES_PASSWORD: breathewise
+      POSTGRES_DB: breathewise
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U breathewise"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  breathewise_data:
+  pg_data:

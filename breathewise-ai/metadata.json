@@ -1,0 +1,6 @@
+{
+  "name": "BreatheWise AI",
+  "description": "Breathe Better. Live Smarter. Together. GenAI-powered assistant helping families and communities navigate winter smog and urban air pollution with personalized routines, indoor air quality guidance, and measurable environmental impact.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
