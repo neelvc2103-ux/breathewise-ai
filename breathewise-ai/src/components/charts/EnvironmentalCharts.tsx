@@ -75,7 +75,7 @@ export function HourlyForecastChart({
           </table>
         </div>
       ) : (
-        <div className="h-64 w-full" aria-label="Hourly air quality forecast chart">
+        <div className="h-64 w-full" role="img" aria-label="Hourly air quality forecast chart">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
               <defs>
@@ -168,7 +168,7 @@ export function ImpactTrendChart({
   }
 
   return (
-    <div className="h-60 w-full" aria-label="Daily avoided CO2e bar chart">
+    <div className="h-60 w-full" role="img" aria-label="Daily avoided CO2e bar chart">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={series} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.2} />

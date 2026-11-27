@@ -38,10 +38,6 @@ function AirQualityMapInner({ snapshot, userCoords }: AirQualityMapProps) {
   const { city, region, country, latitude, longitude } = snapshot.location;
 
   useEffect(() => {
-    setInfoOpen(true);
-  }, [city, latitude, longitude]);
-
-  useEffect(() => {
     if (status === APILoadingStatus.AUTH_FAILURE) {
       window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
     }
@@ -142,7 +138,7 @@ export function AirQualityMap({
       className={`${heightClassName} w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950`}
     >
       <APIProvider apiKey={MAPS_API_KEY} libraries={['marker']} language="en">
-        <AirQualityMapInner snapshot={snapshot} userCoords={userCoords} />
+        <AirQualityMapInner key={`${city}-${latitude}-${longitude}`} snapshot={snapshot} userCoords={userCoords} />
       </APIProvider>
     </div>
   );

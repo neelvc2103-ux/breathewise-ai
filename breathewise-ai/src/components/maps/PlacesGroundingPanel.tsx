@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Compass, ExternalLink, MapPin, Navigation, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import type { PlacesGroundingReply } from '../../types/domain';

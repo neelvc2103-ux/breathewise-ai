@@ -2,6 +2,10 @@ node_modules/
 build/
 dist/
 coverage/
+qa_artifacts/
+*.db
+*.db-wal
+*.db-shm
 .DS_Store
 *.log
 .env*

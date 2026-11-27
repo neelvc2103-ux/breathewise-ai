@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Calculator, Leaf, PlusCircle, ShieldAlert, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { ActivityLogEntry, EmissionFactorRecord, ImpactSummary } from '../types/domain';
@@ -26,13 +26,13 @@ export function AlternativesImpactPage() {
 
   const [selectedCode, setSelectedCode] = useState('COMMUTE_CAR_TO_METRO');
   const [quantity, setQuantity] = useState(12);
-  const [activityDate, setActivityDate] = useState(new Date().toISOString().slice(0, 10));
+  const [activityDate, setActivityDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     try {
       const [altRes, facRes, sumRes, actRes] = await Promise.all([
         apiFetch<{ alternatives: AlternativeCard[] }>(
@@ -49,11 +49,11 @@ export function AlternativesImpactPage() {
     } catch (err) {
       setErrorMsg((err as Error).message);
     }
-  };
+  }, [apiFetch, selectedLocation, demoScenario]);
 
   useEffect(() => {
     loadAll();
-  }, [selectedLocation.city, selectedLocation.standard, demoScenario]);
+  }, [loadAll]);
 
   const activeFactor = factors.find((f) => f.code === selectedCode) ?? factors[0];
   const previewCo2e = activeFactor

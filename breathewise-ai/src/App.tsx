@@ -67,6 +67,45 @@ function BreatheWiseAppShell() {
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const menuButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const drawerRef = React.useRef<HTMLDivElement | null>(null);
+  const wasMobileNavOpenRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (mobileNavOpen) {
+      wasMobileNavOpenRef.current = true;
+      const drawer = drawerRef.current;
+      const focusable = drawer?.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      focusable?.[0]?.focus();
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setMobileNavOpen(false);
+          return;
+        }
+        if (e.key === 'Tab' && focusable && focusable.length > 0) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+
+    if (wasMobileNavOpenRef.current) {
+      wasMobileNavOpenRef.current = false;
+      menuButtonRef.current?.focus();
+    }
+  }, [mobileNavOpen]);
 
   if (surface === 'auth' && !user) {
     return (
@@ -165,6 +204,7 @@ function BreatheWiseAppShell() {
                 key={item.id}
                 type="button"
                 onClick={() => handleNavClick(item.id)}
+                aria-current={active ? 'page' : undefined}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                   active
                     ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-semibold'
@@ -200,16 +240,22 @@ function BreatheWiseAppShell() {
 
       {/* Mobile Drawer */}
       {mobileNavOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden bg-slate-950/60 flex">
+        <div
+          ref={drawerRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Workspace navigation"
+          className="fixed inset-0 z-50 lg:hidden bg-slate-950/60 flex"
+        >
           <div className="w-64 bg-white dark:bg-slate-900 h-full p-4 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
                 <BrandLogo size="sm" />
                 <button type="button" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation">
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
-              <nav className="space-y-1">
+              <nav aria-label="Mobile navigation" className="space-y-1">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -217,6 +263,7 @@ function BreatheWiseAppShell() {
                       key={item.id}
                       type="button"
                       onClick={() => handleNavClick(item.id)}
+                      aria-current={activeTab === item.id ? 'page' : undefined}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
                         activeTab === item.id
                           ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-semibold'
@@ -250,12 +297,13 @@ function BreatheWiseAppShell() {
         <header className="h-14 lg:h-16 px-4 sm:px-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
+              ref={menuButtonRef}
               type="button"
               onClick={() => setMobileNavOpen(true)}
               aria-label="Open menu"
               className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5" aria-hidden="true" />
             </button>
             <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
               BreatheWise AI / <span className="font-medium text-slate-900 dark:text-white capitalize">{activeTab}</span>
@@ -303,7 +351,7 @@ export default function App() {
     <AppErrorBoundary>
       <AuthProvider>
         {quotaExceeded && (
-          <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+          <div role="alert" className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
             <span>
               Google Maps Platform quota reached. If you are the app owner, visit{' '}
               <a

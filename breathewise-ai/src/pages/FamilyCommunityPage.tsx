@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Award, Flag, Home, Trophy, UserPlus, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { ChallengeItem, CommunityPostItem, HouseholdSummary } from '../types/domain';
@@ -17,7 +17,7 @@ export function FamilyPage() {
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const loadHouseholds = async () => {
+  const loadHouseholds = useCallback(async () => {
     try {
       const res = await apiFetch<{ households: HouseholdSummary[]; incomingInvitations: typeof incoming }>('/api/v1/households');
       setHouseholds(res.households);
@@ -25,11 +25,11 @@ export function FamilyPage() {
     } catch (err) {
       setErrorMsg((err as Error).message);
     }
-  };
+  }, [apiFetch]);
 
   useEffect(() => {
     loadHouseholds();
-  }, []);
+  }, [loadHouseholds]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,7 +251,7 @@ export function CommunityPage() {
   const [reportReason, setReportReason] = useState('');
   const [msg, setMsg] = useState('');
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     const [pRes, cRes, aRes] = await Promise.all([
       apiFetch<{ posts: CommunityPostItem[] }>('/api/v1/communities/posts'),
       apiFetch<{ challenges: ChallengeItem[] }>('/api/v1/challenges'),
@@ -260,11 +260,11 @@ export function CommunityPage() {
     setPosts(pRes.posts);
     setChallenges(cRes.challenges);
     setAchievements(aRes.achievements);
-  };
+  }, [apiFetch]);
 
   useEffect(() => {
-    loadAll().catch(() => {});
-  }, []);
+    loadAll().catch(() => { });
+  }, [loadAll]);
 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -447,17 +447,16 @@ export function CommunityPage() {
           {achievements.map((a) => (
             <div
               key={a.id}
-              className={`p-4 rounded-xl border ${
-                a.unlockedAt
+              className={`p-4 rounded-xl border ${a.unlockedAt
                   ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20'
-                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 opacity-75'
-              }`}
+                  : 'border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60'
+                }`}
             >
-              <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              <div className="text-xs font-medium text-slate-600 dark:text-slate-300">
                 {a.unlockedAt ? `Earned ${new Date(a.unlockedAt).toLocaleDateString()}` : 'In Progress'}
               </div>
               <h3 className="font-display text-sm font-bold mt-1">{a.title}</h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{a.description}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{a.description}</p>
             </div>
           ))}
         </div>

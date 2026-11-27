@@ -1,0 +1,13 @@
+Prompt Wars Challenge 6
+
+> https://github.com/neelvc2103-ux/breathewise-ai/tree/main/breathewise-ai
+
+> https://breathewise-ai-qbgl.onrender.com
+
+> vdo
+
+> BreatheWise AI is a GenAI-powered urban air quality assistant designed to help individuals, families, and communities tackle severe winter smog and urban air pollution. The deployed application aims to provide personalized low-emission daily routines, indoor air quality improvement strategies, sustainable lifestyle alternatives, and actionable pollution-prevention recommendations based on users' locations and lifestyles. It explains the environmental and health impact of individual choices in an easy-to-understand manner. The project emphasizes usability, accessibility, sustainability, personalized AI assistance, and responsible environmental decision-making. The application is deployed on Render, with its source code publicly available on GitHub.
+
+> Generative AI is utilized as the core intelligence of BreatheWise AI to interpret user requirements, generate personalized air quality recommendations, suggest sustainable daily routines, provide indoor air quality improvement strategies, and explain the environmental impact of lifestyle choices. GenAI tools were also used during application development for planning, code generation, UI/UX design, debugging, documentation, and improving the overall application experience.
+
+> linkedin post

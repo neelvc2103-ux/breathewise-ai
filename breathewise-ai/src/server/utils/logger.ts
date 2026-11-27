@@ -13,21 +13,36 @@ const SENSITIVE_KEYS = new Set([
   'secret',
 ]);
 
-function redactObject(value: unknown): unknown {
+function isSensitiveKey(key: string): boolean {
+  if (SENSITIVE_KEYS.has(key)) return true;
+  const lower = key.toLowerCase();
+  return (
+    lower.includes('secret') ||
+    lower.includes('token') ||
+    lower.includes('password') ||
+    lower.includes('authorization')
+  );
+}
+
+/**
+ * Recursively clones and redacts sensitive fields from structured log metadata,
+ * guarding against circular object references.
+ */
+export function redactObject(value: unknown, seen = new WeakSet<object>()): unknown {
   if (value === null || value === undefined) return value;
-  if (Array.isArray(value)) return value.map(redactObject);
-  if (typeof value === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (SENSITIVE_KEYS.has(k) || k.toLowerCase().includes('secret') || k.toLowerCase().includes('token')) {
-        out[k] = '[REDACTED]';
-      } else {
-        out[k] = redactObject(v);
-      }
-    }
-    return out;
+  if (typeof value !== 'object') return value;
+  if (seen.has(value)) return '[Circular]';
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((item) => redactObject(item, seen));
   }
-  return value;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = isSensitiveKey(k) ? '[REDACTED]' : redactObject(v, seen);
+  }
+  return out;
 }
 
 export const logger = {

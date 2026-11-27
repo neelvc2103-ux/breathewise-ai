@@ -4,5 +4,11 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    testTimeout: 15000,
+    coverage: {
+      provider: 'v8',
+      include: ['src/server/**/*.ts', 'src/validators/**/*.ts'],
+      reporter: ['text', 'json-summary'],
+    },
   },
 });

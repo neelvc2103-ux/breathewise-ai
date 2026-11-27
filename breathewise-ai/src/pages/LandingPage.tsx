@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, BookOpen, CheckCircle2, Compass, Globe, Search, ShieldCheck, Wind } from 'lucide-react';
+import { ArrowRight, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { AqiStandard, EducationalResourceItem, EnvironmentalSnapshot } from '../types/domain';
 import { AqiStatusDisplay } from '../components/ui/AqiBadge';
@@ -32,7 +32,7 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
   const [fbStatus, setFbStatus] = useState<'idle' | 'submitting' | 'sent' | 'error'>('idle');
   const [fbError, setFbError] = useState('');
 
-  const loadSnapshot = async (
+  const loadSnapshot = React.useCallback(async (
     city: string,
     lat: number,
     lon: number,
@@ -54,22 +54,25 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
     } finally {
       setLoadingAqi(false);
     }
-  };
+  }, []);
+
+  const initialLocationRef = React.useRef(selectedLocation);
 
   useEffect(() => {
+    const loc = initialLocationRef.current;
     loadSnapshot(
-      selectedLocation.city,
-      selectedLocation.latitude,
-      selectedLocation.longitude,
-      selectedLocation.standard,
-      selectedLocation.region,
-      selectedLocation.country,
+      loc.city,
+      loc.latitude,
+      loc.longitude,
+      loc.standard,
+      loc.region,
+      loc.country,
     );
     fetch('/api/v1/resources')
       .then((r) => r.json())
       .then((d) => setResources(d.resources || []))
       .catch(() => {});
-  }, []);
+  }, [loadSnapshot]);
 
   const handleCitySearch = async (e: React.FormEvent) => {
     e.preventDefault();

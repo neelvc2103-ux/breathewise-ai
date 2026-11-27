@@ -8,15 +8,15 @@ export function EducationPage() {
   const [resources, setResources] = useState<EducationalResourceItem[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const loadResources = async (q = '') => {
+  const loadResources = React.useCallback(async (q = '') => {
     const res = await fetch(`/api/v1/resources?q=${encodeURIComponent(q)}`);
     const data = await res.json();
     setResources(data.resources || []);
-  };
+  }, []);
 
   useEffect(() => {
     loadResources();
-  }, []);
+  }, [loadResources]);
 
   return (
     <div className="space-y-6">
@@ -111,7 +111,7 @@ export function NotificationsSettingsPage({ onEditOnboarding }: { onEditOnboardi
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const loadAll = async () => {
+  const loadAll = React.useCallback(async () => {
     try {
       const [nRes, pRes, sRes] = await Promise.all([
         apiFetch<{ notifications: NotificationItem[] }>('/api/v1/notifications'),
@@ -124,11 +124,11 @@ export function NotificationsSettingsPage({ onEditOnboarding }: { onEditOnboardi
     } catch (err) {
       setErrorMsg((err as Error).message);
     }
-  };
+  }, [apiFetch]);
 
   useEffect(() => {
     loadAll();
-  }, []);
+  }, [loadAll]);
 
   const savePrefs = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -287,7 +287,7 @@ export function NotificationsSettingsPage({ onEditOnboarding }: { onEditOnboardi
                 />
               </div>
             </div>
-            <div className="space-y-1.5 pt-1">
+            <div className="space-y-3 pt-1">
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={prefs.inAppEnabled} onChange={(e) => setPrefs({ ...prefs, inAppEnabled: e.target.checked })} />
                 In-app threshold notifications

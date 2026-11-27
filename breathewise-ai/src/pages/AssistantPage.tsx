@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Compass, MessageSquare, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { AssistantReply, StructuredRecommendation } from '../types/domain';
@@ -33,18 +33,18 @@ export function AssistantPage() {
   const [assistantMode, setAssistantMode] = useState<'qa' | 'places'>('qa');
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       const res = await apiFetch<{ conversations: typeof conversations }>('/api/v1/assistant/conversations');
       setConversations(res.conversations);
     } catch {
       // Ignore initial empty
     }
-  };
+  }, [apiFetch]);
 
   useEffect(() => {
     loadConversations();
-  }, []);
+  }, [loadConversations]);
 
   const loadConversationMessages = async (convId: string) => {
     setActiveConvId(convId);

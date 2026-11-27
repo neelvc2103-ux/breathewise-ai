@@ -461,6 +461,8 @@ export async function getEnvironmentalSnapshot(
       };
     }
 
-    throw new Error('Unable to retrieve live air quality data right now and no cached reading is available.');
+    throw new Error('Unable to retrieve live air quality data right now and no cached reading is available.', {
+      cause: err,
+    });
   }
 }
