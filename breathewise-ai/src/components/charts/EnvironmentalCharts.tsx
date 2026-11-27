@@ -24,8 +24,8 @@ export function HourlyForecastChart({
   const chartData = data.map((d) => ({
     hour: d.hourLabel,
     aqi: standard === 'INDIA_NAQI' ? d.indiaAqi : d.usAqi,
-    pm25: d.pm25 ?? 0,
-    wind: d.windSpeedKmh ?? 0,
+    pm25: d.pm25,
+    wind: d.windSpeedKmh,
   }));
 
   if (chartData.length === 0) {
@@ -67,8 +67,8 @@ export function HourlyForecastChart({
                 <tr key={row.hour}>
                   <td className="py-2 px-3 font-mono">{row.hour}</td>
                   <td className="py-2 px-3 text-right font-mono font-medium">{row.aqi}</td>
-                  <td className="py-2 px-3 text-right font-mono">{row.pm25}</td>
-                  <td className="py-2 px-3 text-right font-mono">{row.wind}</td>
+                  <td className="py-2 px-3 text-right font-mono">{row.pm25 ?? '--'}</td>
+                  <td className="py-2 px-3 text-right font-mono">{row.wind ?? '--'}</td>
                 </tr>
               ))}
             </tbody>

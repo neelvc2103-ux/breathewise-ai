@@ -243,7 +243,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
                 <div>
                   <div className="text-slate-500 dark:text-slate-400">Wind &amp; Dispersion</div>
                   <div className="font-mono font-semibold text-slate-900 dark:text-slate-100 mt-0.5">
-                    {snapshot.weather.windSpeedKmh ?? '--'} km/h · {snapshot.weather.isInversionLikely ? 'Inversion Risk' : 'Dispersing'}
+                    {snapshot.weather.windSpeedKmh ?? '--'} km/h · {snapshot.weather.windSpeedKmh === null ? 'Unavailable' : snapshot.weather.isInversionLikely ? 'Inversion Risk' : 'Dispersing'}
                   </div>
                 </div>
               </div>
