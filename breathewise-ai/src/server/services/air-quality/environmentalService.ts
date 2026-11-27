@@ -532,6 +532,47 @@ async function fetchOpenWeatherSnapshotBase(params: {
   };
 }
 
+function upsertEnvironmentalCache(
+  db: DatabaseSync,
+  cacheKey: string,
+  latitude: number,
+  longitude: number,
+  snapshotBase: SnapshotBase,
+): void {
+  db.prepare(`
+    INSERT INTO environmental_cache (cache_key, latitude, longitude, payload_json, fetched_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(cache_key) DO UPDATE SET payload_json = excluded.payload_json, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at
+  `).run(
+    cacheKey,
+    latitude,
+    longitude,
+    JSON.stringify(snapshotBase),
+    snapshotBase.fetchedAt,
+    new Date(Date.now() + CACHE_TTL_MS).toISOString(),
+  );
+}
+
+function hydrateCachedSnapshot(
+  payloadJson: string,
+  location: EnvironmentalSnapshot['location'],
+  standard: AqiStandard,
+  flags: Pick<EnvironmentalSnapshot, 'isCached' | 'isStale' | 'isDemo'> & {
+    demoScenario?: DemoScenario;
+    staleReason?: string;
+  },
+): EnvironmentalSnapshot {
+  const parsed = JSON.parse(payloadJson) as SnapshotBase;
+  const aqiNum = computeAqiFromPollutants(parsed.pollutants, standard);
+  return {
+    ...parsed,
+    location,
+    standard,
+    aqi: getAqiSeverityMeta(aqiNum, standard),
+    ...flags,
+  };
+}
+
 /**
  * Fetches live Air Quality & Weather data from Open-Meteo APIs (with optional OpenWeatherMap fallback),
  * SQLite TTL caching, in-flight request deduplication, HTTP 429 cooldowns, and graceful stale-cache fallback.
@@ -572,40 +613,30 @@ export async function getEnvironmentalSnapshot(
     .prepare('SELECT payload_json, fetched_at, expires_at FROM environmental_cache WHERE cache_key = ?')
     .get(cacheKey) as { payload_json: string; fetched_at: string; expires_at: string } | undefined;
 
+  const targetLocation = { name: city, city, region, country, latitude, longitude };
+
   // Simulated external API failure mode for evaluators
   if (envConfig.demoMode && demoScenario === 'api_failure') {
     recordMetric(db, 'open-meteo', 'error', 120, userId);
     if (cachedRow) {
-      const parsed = JSON.parse(cachedRow.payload_json) as SnapshotBase;
-      const aqiNum = computeAqiFromPollutants(parsed.pollutants, standard);
-      return {
-        ...parsed,
-        location: { ...parsed.location, name: city, city, region, country },
-        standard,
-        aqi: getAqiSeverityMeta(aqiNum, standard),
+      return hydrateCachedSnapshot(cachedRow.payload_json, targetLocation, standard, {
         isCached: true,
         isStale: true,
         isDemo: true,
         demoScenario: 'api_failure',
         staleReason: 'Simulated external Air Quality API outage: displaying last valid cached observation.',
-      };
+      });
     }
     throw new Error('External environmental API is currently unavailable and no prior cached reading exists for this location.');
   }
 
   if (cachedRow && new Date(cachedRow.expires_at).getTime() > Date.now()) {
     recordMetric(db, 'open-meteo', 'cache_hit', 3, userId);
-    const parsed = JSON.parse(cachedRow.payload_json) as SnapshotBase;
-    const aqiNum = computeAqiFromPollutants(parsed.pollutants, standard);
-    return {
-      ...parsed,
-      location: { name: city, city, region, country, latitude, longitude },
-      standard,
-      aqi: getAqiSeverityMeta(aqiNum, standard),
+    return hydrateCachedSnapshot(cachedRow.payload_json, targetLocation, standard, {
       isCached: true,
       isStale: false,
       isDemo: false,
-    };
+    });
   }
 
   const cacheStatus = cachedRow ? 'stale' : 'miss';
@@ -614,18 +645,7 @@ export async function getEnvironmentalSnapshot(
   const runLiveFetch = async (): Promise<SnapshotBase> => {
     try {
       const { snapshotBase } = await fetchOpenMeteoSnapshotBase({ city, region, country, latitude, longitude });
-      db.prepare(`
-        INSERT INTO environmental_cache (cache_key, latitude, longitude, payload_json, fetched_at, expires_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(cache_key) DO UPDATE SET payload_json = excluded.payload_json, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at
-      `).run(
-        cacheKey,
-        latitude,
-        longitude,
-        JSON.stringify(snapshotBase),
-        snapshotBase.fetchedAt,
-        new Date(Date.now() + CACHE_TTL_MS).toISOString(),
-      );
+      upsertEnvironmentalCache(db, cacheKey, latitude, longitude, snapshotBase);
       recordMetric(db, 'open-meteo', 'success', Date.now() - startedAt, userId);
       return snapshotBase;
     } catch (primaryErr) {
@@ -641,18 +661,7 @@ export async function getEnvironmentalSnapshot(
       if (envConfig.openWeatherApiKey) {
         try {
           const secondaryBase = await fetchOpenWeatherSnapshotBase({ city, region, country, latitude, longitude });
-          db.prepare(`
-            INSERT INTO environmental_cache (cache_key, latitude, longitude, payload_json, fetched_at, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(cache_key) DO UPDATE SET payload_json = excluded.payload_json, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at
-          `).run(
-            cacheKey,
-            latitude,
-            longitude,
-            JSON.stringify(secondaryBase),
-            secondaryBase.fetchedAt,
-            new Date(Date.now() + CACHE_TTL_MS).toISOString(),
-          );
+          upsertEnvironmentalCache(db, cacheKey, latitude, longitude, secondaryBase);
           recordMetric(db, 'openweathermap', 'fallback', Date.now() - startedAt, userId);
           return secondaryBase;
         } catch (secondaryErr) {
@@ -682,7 +691,7 @@ export async function getEnvironmentalSnapshot(
     const computedAqi = computeAqiFromPollutants(snapshotBase.pollutants, standard);
     return {
       ...snapshotBase,
-      location: { name: city, city, region, country, latitude, longitude },
+      location: targetLocation,
       standard,
       aqi: getAqiSeverityMeta(computedAqi, standard),
     };
@@ -690,18 +699,12 @@ export async function getEnvironmentalSnapshot(
     recordMetric(db, 'open-meteo', 'error', Date.now() - startedAt, userId);
 
     if (cachedRow) {
-      const parsed = JSON.parse(cachedRow.payload_json) as SnapshotBase;
-      const aqiNum = computeAqiFromPollutants(parsed.pollutants, standard);
-      return {
-        ...parsed,
-        location: { name: city, city, region, country, latitude, longitude },
-        standard,
-        aqi: getAqiSeverityMeta(aqiNum, standard),
+      return hydrateCachedSnapshot(cachedRow.payload_json, targetLocation, standard, {
         isCached: true,
         isStale: true,
         isDemo: false,
         staleReason: 'Live air quality provider rate-limited or timed out; showing last valid cached observation.',
-      };
+      });
     }
 
     throw new Error('Unable to retrieve live air quality data right now and no cached reading is available.', {
