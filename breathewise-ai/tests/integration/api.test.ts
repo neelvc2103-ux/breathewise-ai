@@ -1,12 +1,31 @@
 import type { AddressInfo } from 'node:net';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../server';
 
 describe('Full-Stack API Integration & Security Tests', () => {
   let baseUrl = '';
   let server: ReturnType<ReturnType<typeof createApp>['app']['listen']>;
+  const realFetch = globalThis.fetch;
 
   beforeAll(async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes('open-meteo.com')) {
+        const isAq = url.includes('air-quality');
+        const payload = isAq
+          ? {
+              current: { pm2_5: 190, pm10: 300, nitrogen_dioxide: 68, sulphur_dioxide: 16, carbon_monoxide: 1400, ozone: 32, us_aqi: 240, time: '2026-11-27T08:00' },
+              hourly: { time: ['2026-11-27T08:00:00Z', '2026-11-27T14:00:00Z'], pm2_5: [190, 140], pm10: [300, 220], us_aqi: [240, 195] },
+            }
+          : {
+              current: { temperature_2m: 14, relative_humidity_2m: 78, wind_speed_10m: 3.5, weather_code: 45 },
+              hourly: { time: ['2026-11-27T08:00:00Z', '2026-11-27T14:00:00Z'], temperature_2m: [14, 19], wind_speed_10m: [3.5, 8.0] },
+            };
+        return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return realFetch(input, init);
+    });
+
     const { app } = createApp(':memory:');
     await new Promise<void>((resolve) => {
       server = app.listen(0, '127.0.0.1', () => {
@@ -18,6 +37,7 @@ describe('Full-Stack API Integration & Security Tests', () => {
   });
 
   afterAll(async () => {
+    vi.restoreAllMocks();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 

@@ -8,6 +8,9 @@ import type {
 } from '../../../types/domain';
 import { findBestForecastWindow } from '../ai/aiService';
 
+// DEFRA / India GHG Program savings per km shifting petrol car (0.171) to metro (0.035)
+const CAR_TO_METRO_SAVINGS_KG_PER_KM = 0.136;
+
 export function buildAdaptiveRoutine(
   snapshot: EnvironmentalSnapshot,
   profile: Partial<UserProfile>,
@@ -54,7 +57,7 @@ export function buildAdaptiveRoutine(
       exposureNote: highSmog
         ? 'Enclosed metro cabins + N95 filtration cut roadside PM2.5 inhalation versus open two-wheelers.'
         : 'Avoids congested roadside exhaust inhalation.',
-      environmentalNote: `Replacing ${commuteKm} km solo car travel with metro avoids ~${(commuteKm * 0.136).toFixed(2)} kg CO2e per way.`,
+      environmentalNote: `Replacing ${commuteKm} km solo car travel with metro avoids ~${(commuteKm * CAR_TO_METRO_SAVINGS_KG_PER_KM).toFixed(2)} kg CO2e per way.`,
       reason: `Tailored to your ${commuteKm} km commute (${profile.primaryTransport ?? 'car'}).`,
       isIndoor: profile.workMode === 'wfh',
       completed: false,
@@ -63,7 +66,7 @@ export function buildAdaptiveRoutine(
       id: crypto.randomUUID(),
       category: 'Home Ventilation',
       title: 'Forecast-Aligned Cross Ventilation',
-      scheduledTime: bestWindow.includes(':') ? bestWindow.slice(bestWindow.indexOf(':') - 2, bestWindow.indexOf(':') + 3) : '14:00',
+      scheduledTime: bestWindow.match(/\b(\d{2}:\d{2})\b/)?.[1] ?? '14:00',
       suggestedAlternative: highSmog
         ? 'Keep windows sealed; rely on HEPA recirculation until forecast AQI improves'
         : `Open opposite windows for 15–20 minutes during ${bestWindow}`,

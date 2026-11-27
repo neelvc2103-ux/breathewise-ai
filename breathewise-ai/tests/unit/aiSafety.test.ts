@@ -103,4 +103,43 @@ describe('AI Safety, Prompt Sanitization & Deterministic Fallback', () => {
     expect(places[1].title).toBe('Lodhi Garden');
     expect(places[1].reviewSnippets[0].content).toContain('walking loop');
   });
+
+  it('tailors recommendations across challenge scenarios: elderly/low-budget, community, commuter, and stale data', () => {
+    // 1. Household with elderly members and limited budget
+    const snap = makeSnapshot(365);
+    const elderlyReply = buildDeterministicFallbackReply('How can we keep indoor air clean?', snap, {
+      elderlyCount: 2,
+      childrenCount: 1,
+      hasSensitiveMembers: true,
+      hasAirPurifier: false,
+      budgetLevel: 'no_cost',
+    });
+    expect(elderlyReply.recommendations[0].personalRelevance).toContain('elderly');
+    expect(elderlyReply.recommendations[2].personalRelevance).toContain('zero-cost / low-cost');
+
+    // 2. Office commuter seeking deterministic CO2e alternatives
+    const commuteReply = buildDeterministicFallbackReply('How much CO2 can I avoid on my commute?', snap, {
+      commuteDistanceKm: 10,
+      workMode: 'office',
+      publicTransitAvailable: true,
+    });
+    expect(commuteReply.summary).toContain('1.36 kg CO2e');
+    expect(commuteReply.recommendations[1].environmentalBenefit).toContain('1.36 kg CO2e');
+
+    // 3. Community seeking collective pollution-reduction actions
+    const communityReply = buildDeterministicFallbackReply('What community actions can our neighborhood take?', snap, {
+      sustainabilityGoal: 'Neighborhood clean air',
+    });
+    expect(communityReply.recommendations.some((r) => r.title.toLowerCase().includes('community') || r.title.toLowerCase().includes('neighborhood'))).toBe(true);
+
+    // 4. Stale cached data with unavailable weather
+    const staleSnap: EnvironmentalSnapshot = {
+      ...snap,
+      isStale: true,
+      weather: { temperatureC: null, humidityPct: null, windSpeedKmh: null, conditionText: 'Weather unavailable', isInversionLikely: false },
+    };
+    const staleReply = buildDeterministicFallbackReply('Should I commute today?', staleSnap, {});
+    expect(staleReply.summary).toContain('cached environmental readings');
+    expect(staleReply.recommendations[1].reason).toContain('unavailable');
+  });
 });
