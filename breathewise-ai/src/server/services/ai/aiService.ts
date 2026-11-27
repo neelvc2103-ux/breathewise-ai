@@ -120,7 +120,7 @@ export function buildDeterministicFallbackReply(
         ? `Take enclosed metro or public bus (or work remotely if permitted) for your ${commuteKm} km commute instead of solo driving.`
         : 'Combine errands into one trip and switch off the engine at stops longer than 30 seconds.',
     recommendedTime: 'Morning and evening commute hours',
-    reason: `Tailpipe exhaust and road dust worsen winter inversion smog when wind speed is ${snapshot.weather.windSpeedKmh ?? 'low'} km/h.`,
+    reason: `Tailpipe exhaust and road dust worsen winter inversion smog when wind speed is ${snapshot.weather.windSpeedKmh !== null ? `${snapshot.weather.windSpeedKmh} km/h` : 'unavailable'}.`,
     personalRelevance: `Tailored to your ${commuteKm} km typical commute (${profile.primaryTransport || 'car'}).`,
     exposureBenefit: 'Enclosed air-conditioned metro/rail cabins paired with an N95 mask reduce exposure vs. two-wheelers or open traffic.',
     environmentalBenefit: `Deterministic estimate: shifting ${commuteKm} km from a solo petrol car to metro avoids ~${metroAvoidedKg} kg CO2e per trip.`,

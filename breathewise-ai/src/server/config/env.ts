@@ -17,5 +17,6 @@ export const envConfig = {
   airQualityApiBase: process.env.AIR_QUALITY_API_BASE || 'https://air-quality-api.open-meteo.com/v1',
   weatherApiBase: process.env.WEATHER_API_BASE || 'https://api.open-meteo.com/v1',
   geocodingApiBase: process.env.GEOCODING_API_BASE || 'https://geocoding-api.open-meteo.com/v1',
+  openWeatherApiKey: process.env.OPENWEATHER_API_KEY ?? '',
   demoMode: process.env.DEMO_MODE !== 'false',
 };

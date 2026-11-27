@@ -11,6 +11,50 @@ import { logger } from '../../utils/logger';
 import { computeAqiFromPollutants, getAqiSeverityMeta } from './aqiStandards';
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
+const DEFAULT_429_COOLDOWN_MS = 60 * 1000;
+const MIN_429_COOLDOWN_MS = 15 * 1000;
+const MAX_429_COOLDOWN_MS = 60 * 60 * 1000;
+
+type SnapshotBase = Omit<EnvironmentalSnapshot, 'standard' | 'aqi'>;
+
+const providerCooldownUntil = new Map<string, number>();
+const inFlightSnapshots = new Map<string, Promise<SnapshotBase>>();
+
+/**
+ * Clears in-memory provider cooldowns and in-flight dedup state (used in automated tests).
+ */
+export function resetEnvironmentalRuntimeState(): void {
+  providerCooldownUntil.clear();
+  inFlightSnapshots.clear();
+}
+
+export class UpstreamHttpError extends Error {
+  readonly provider: string;
+  readonly status: number;
+  readonly retryAfter: string | null;
+
+  constructor(provider: string, status: number, retryAfter: string | null) {
+    super(`Upstream status ${status}`);
+    this.name = 'UpstreamHttpError';
+    this.provider = provider;
+    this.status = status;
+    this.retryAfter = retryAfter;
+  }
+}
+
+function parseRetryAfterMs(retryAfter: string | null): number {
+  if (!retryAfter) return DEFAULT_429_COOLDOWN_MS;
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.min(MAX_429_COOLDOWN_MS, Math.max(MIN_429_COOLDOWN_MS, seconds * 1000));
+  }
+  const parsedDate = Date.parse(retryAfter);
+  if (!Number.isNaN(parsedDate)) {
+    const delta = parsedDate - Date.now();
+    return Math.min(MAX_429_COOLDOWN_MS, Math.max(MIN_429_COOLDOWN_MS, delta));
+  }
+  return DEFAULT_429_COOLDOWN_MS;
+}
 
 interface GeocodeResult {
   name: string;
@@ -23,13 +67,32 @@ interface GeocodeResult {
 }
 
 async function fetchWithRetry(url: string, attempts = 2): Promise<Response> {
+  const provider = new URL(url).hostname;
+  const cooldownUntil = providerCooldownUntil.get(provider);
+  if (cooldownUntil && cooldownUntil > Date.now()) {
+    const remainingSec = Math.ceil((cooldownUntil - Date.now()) / 1000);
+    throw new UpstreamHttpError(provider, 429, String(remainingSec));
+  }
+
   let lastError: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (response.ok) return response;
-      lastError = new Error(`Upstream status ${response.status}`);
+
+      const retryAfter = response.headers?.get?.('retry-after') ?? null;
+      if (response.status === 429) {
+        const cooldownMs = parseRetryAfterMs(retryAfter);
+        providerCooldownUntil.set(provider, Date.now() + cooldownMs);
+        // Never amplify HTTP 429 with immediate retries
+        throw new UpstreamHttpError(provider, 429, retryAfter);
+      }
+
+      lastError = new UpstreamHttpError(provider, response.status, retryAfter);
     } catch (err) {
+      if (err instanceof UpstreamHttpError && err.status === 429) {
+        throw err;
+      }
       lastError = err;
     }
     if (i < attempts - 1) {
@@ -241,9 +304,237 @@ function recordMetric(
   }
 }
 
+async function fetchOpenMeteoSnapshotBase(params: {
+  city: string;
+  region: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+}): Promise<{ snapshotBase: SnapshotBase; currentUsAqi?: number }> {
+  const { city, region, country, latitude, longitude } = params;
+  const aqUrl =
+    `${envConfig.airQualityApiBase}/air-quality?latitude=${latitude}&longitude=${longitude}` +
+    `&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,us_aqi` +
+    `&hourly=pm10,pm2_5,us_aqi&forecast_days=2&timezone=auto`;
+  const wxUrl =
+    `${envConfig.weatherApiBase}/forecast?latitude=${latitude}&longitude=${longitude}` +
+    `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code` +
+    `&hourly=temperature_2m,wind_speed_10m&forecast_days=2&timezone=auto`;
+
+  // Fetch Air Quality and Weather independently so an optional weather 429 never hides live AQI
+  const [aqSettled, wxSettled] = await Promise.allSettled([
+    fetchWithRetry(aqUrl, 2),
+    fetchWithRetry(wxUrl, 2),
+  ]);
+
+  if (aqSettled.status === 'rejected') {
+    throw aqSettled.reason;
+  }
+
+  const aqData = (await aqSettled.value.json()) as {
+    current?: {
+      time?: string;
+      pm2_5?: number | null;
+      pm10?: number | null;
+      nitrogen_dioxide?: number | null;
+      sulphur_dioxide?: number | null;
+      carbon_monoxide?: number | null;
+      ozone?: number | null;
+      us_aqi?: number | null;
+    };
+    hourly?: {
+      time?: string[];
+      pm2_5?: Array<number | null>;
+      pm10?: Array<number | null>;
+      us_aqi?: Array<number | null>;
+    };
+  };
+
+  let wxData: {
+    current?: {
+      temperature_2m?: number | null;
+      relative_humidity_2m?: number | null;
+      wind_speed_10m?: number | null;
+      weather_code?: number;
+    };
+    hourly?: {
+      time?: string[];
+      temperature_2m?: Array<number | null>;
+      wind_speed_10m?: Array<number | null>;
+    };
+  } = {};
+
+  if (wxSettled.status === 'fulfilled') {
+    wxData = (await wxSettled.value.json()) as typeof wxData;
+  } else {
+    const wxErr = wxSettled.reason;
+    logger.warn('weather_api_unavailable', {
+      city,
+      provider: wxErr instanceof UpstreamHttpError ? wxErr.provider : new URL(wxUrl).hostname,
+      status: wxErr instanceof UpstreamHttpError ? wxErr.status : undefined,
+      retryAfter: wxErr instanceof UpstreamHttpError ? wxErr.retryAfter : undefined,
+      message: wxErr instanceof Error ? wxErr.message : String(wxErr),
+    });
+  }
+
+  const pollutants = {
+    pm25: aqData.current?.pm2_5 ?? null,
+    pm10: aqData.current?.pm10 ?? null,
+    no2: aqData.current?.nitrogen_dioxide ?? null,
+    so2: aqData.current?.sulphur_dioxide ?? null,
+    co: aqData.current?.carbon_monoxide ?? null,
+    o3: aqData.current?.ozone ?? null,
+  };
+
+  const temp = wxData.current?.temperature_2m ?? null;
+  const hum = wxData.current?.relative_humidity_2m ?? null;
+  const wind = wxData.current?.wind_speed_10m ?? null;
+  const isInversionLikely = Boolean(wind !== null && wind < 6.5 && temp !== null && temp < 18);
+
+  const hourlyForecast: HourlyForecastPoint[] = [];
+  const times = aqData.hourly?.time ?? [];
+  const nowMs = Date.now();
+  for (let i = 0; i < times.length && hourlyForecast.length < 12; i++) {
+    const tMs = Date.parse(times[i]);
+    if (Number.isNaN(tMs) || tMs < nowMs - 3600 * 1000) continue;
+    const pm25 = aqData.hourly?.pm2_5?.[i] ?? null;
+    const pm10 = aqData.hourly?.pm10?.[i] ?? null;
+    hourlyForecast.push({
+      timeIso: times[i],
+      hourLabel: times[i].slice(11, 16),
+      pm25,
+      pm10,
+      usAqi: aqData.hourly?.us_aqi?.[i] ?? computeAqiFromPollutants({ pm25, pm10 }, 'US_EPA'),
+      indiaAqi: computeAqiFromPollutants({ pm25, pm10 }, 'INDIA_NAQI'),
+      temperatureC: wxData.hourly?.temperature_2m?.[i] ?? null,
+      windSpeedKmh: wxData.hourly?.wind_speed_10m?.[i] ?? null,
+    });
+  }
+
+  const nowIso = new Date().toISOString();
+  const snapshotBase: SnapshotBase = {
+    location: { name: city, city, region, country, latitude, longitude },
+    pollutants,
+    weather: {
+      temperatureC: temp,
+      humidityPct: hum,
+      windSpeedKmh: wind,
+      conditionText:
+        wxSettled.status === 'fulfilled'
+          ? weatherCodeToText(wxData.current?.weather_code)
+          : 'Weather temporarily unavailable',
+      isInversionLikely,
+    },
+    hourlyForecast,
+    dataSource:
+      wxSettled.status === 'fulfilled'
+        ? 'Open-Meteo Air Quality & Weather API (Copernicus CAMS)'
+        : 'Open-Meteo Air Quality API (Copernicus CAMS)',
+    observedAt: aqData.current?.time ? new Date(aqData.current.time).toISOString() : nowIso,
+    fetchedAt: nowIso,
+    isCached: false,
+    isStale: false,
+    isDemo: false,
+  };
+
+  return {
+    snapshotBase,
+    currentUsAqi: typeof aqData.current?.us_aqi === 'number' ? aqData.current.us_aqi : undefined,
+  };
+}
+
+async function fetchOpenWeatherSnapshotBase(params: {
+  city: string;
+  region: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+}): Promise<SnapshotBase> {
+  const { city, region, country, latitude, longitude } = params;
+  const key = encodeURIComponent(envConfig.openWeatherApiKey);
+  const currentUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${latitude}&lon=${longitude}&appid=${key}`;
+  const forecastUrl = `https://api.openweathermap.org/data/2.5/air_pollution/forecast?lat=${latitude}&lon=${longitude}&appid=${key}`;
+
+  const [curRes, fcSettled] = await Promise.all([
+    fetchWithRetry(currentUrl, 1),
+    fetchWithRetry(forecastUrl, 1).then(
+      (r) => r.json(),
+      () => null,
+    ),
+  ]);
+
+  const curJson = (await curRes.json()) as {
+    list?: Array<{
+      dt?: number;
+      components?: {
+        co?: number;
+        no2?: number;
+        o3?: number;
+        so2?: number;
+        pm2_5?: number;
+        pm10?: number;
+      };
+    }>;
+  };
+
+  const currentItem = curJson.list?.[0];
+  if (!currentItem?.components) {
+    throw new Error('OpenWeatherMap Air Pollution API returned no pollutant readings.');
+  }
+
+  const c = currentItem.components;
+  const nowIso = new Date().toISOString();
+  const observedAt = typeof currentItem.dt === 'number' ? new Date(currentItem.dt * 1000).toISOString() : nowIso;
+
+  const fcList = ((fcSettled as { list?: typeof curJson.list } | null)?.list ?? []).slice(0, 12);
+  const hourlyForecast: HourlyForecastPoint[] = fcList
+    .filter((entry) => typeof entry.dt === 'number')
+    .map((entry) => {
+      const dtIso = new Date((entry.dt as number) * 1000).toISOString();
+      const pm25 = entry.components?.pm2_5 ?? null;
+      const pm10 = entry.components?.pm10 ?? null;
+      return {
+        timeIso: dtIso,
+        hourLabel: dtIso.slice(11, 16),
+        pm25,
+        pm10,
+        usAqi: computeAqiFromPollutants({ pm25, pm10 }, 'US_EPA'),
+        indiaAqi: computeAqiFromPollutants({ pm25, pm10 }, 'INDIA_NAQI'),
+        temperatureC: null,
+        windSpeedKmh: null,
+      };
+    });
+
+  return {
+    location: { name: city, city, region, country, latitude, longitude },
+    pollutants: {
+      pm25: c.pm2_5 ?? null,
+      pm10: c.pm10 ?? null,
+      no2: c.no2 ?? null,
+      so2: c.so2 ?? null,
+      co: c.co ?? null,
+      o3: c.o3 ?? null,
+    },
+    weather: {
+      temperatureC: null,
+      humidityPct: null,
+      windSpeedKmh: null,
+      conditionText: 'Weather unavailable (secondary air quality fallback)',
+      isInversionLikely: false,
+    },
+    hourlyForecast,
+    dataSource: 'OpenWeatherMap Air Pollution API (Secondary Fallback — Estimated AQI from Current Pollutants)',
+    observedAt,
+    fetchedAt: nowIso,
+    isCached: false,
+    isStale: false,
+    isDemo: false,
+  };
+}
+
 /**
- * Fetches live Air Quality & Weather data from Open-Meteo APIs, with SQLite TTL caching,
- * graceful stale-cache fallback on upstream outages, and explicit Demo Scenario overrides.
+ * Fetches live Air Quality & Weather data from Open-Meteo APIs (with optional OpenWeatherMap fallback),
+ * SQLite TTL caching, in-flight request deduplication, HTTP 429 cooldowns, and graceful stale-cache fallback.
  */
 export async function getEnvironmentalSnapshot(
   db: DatabaseSync,
@@ -285,9 +576,7 @@ export async function getEnvironmentalSnapshot(
   if (envConfig.demoMode && demoScenario === 'api_failure') {
     recordMetric(db, 'open-meteo', 'error', 120, userId);
     if (cachedRow) {
-      const parsed = JSON.parse(cachedRow.payload_json) as Omit<EnvironmentalSnapshot, 'standard' | 'aqi'> & {
-        pollutants: EnvironmentalSnapshot['pollutants'];
-      };
+      const parsed = JSON.parse(cachedRow.payload_json) as SnapshotBase;
       const aqiNum = computeAqiFromPollutants(parsed.pollutants, standard);
       return {
         ...parsed,
@@ -306,7 +595,7 @@ export async function getEnvironmentalSnapshot(
 
   if (cachedRow && new Date(cachedRow.expires_at).getTime() > Date.now()) {
     recordMetric(db, 'open-meteo', 'cache_hit', 3, userId);
-    const parsed = JSON.parse(cachedRow.payload_json) as Omit<EnvironmentalSnapshot, 'standard' | 'aqi'>;
+    const parsed = JSON.parse(cachedRow.payload_json) as SnapshotBase;
     const aqiNum = computeAqiFromPollutants(parsed.pollutants, standard);
     return {
       ...parsed,
@@ -319,135 +608,89 @@ export async function getEnvironmentalSnapshot(
     };
   }
 
+  const cacheStatus = cachedRow ? 'stale' : 'miss';
   const startedAt = Date.now();
-  try {
-    const aqUrl =
-      `${envConfig.airQualityApiBase}/air-quality?latitude=${latitude}&longitude=${longitude}` +
-      `&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,us_aqi` +
-      `&hourly=pm10,pm2_5,us_aqi&forecast_days=2&timezone=auto`;
-    const wxUrl =
-      `${envConfig.weatherApiBase}/forecast?latitude=${latitude}&longitude=${longitude}` +
-      `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code` +
-      `&hourly=temperature_2m,wind_speed_10m&forecast_days=2&timezone=auto`;
 
-    const [aqRes, wxRes] = await Promise.all([fetchWithRetry(aqUrl, 2), fetchWithRetry(wxUrl, 2)]);
-    const aqData = (await aqRes.json()) as {
-      current?: {
-        time?: string;
-        pm2_5?: number | null;
-        pm10?: number | null;
-        nitrogen_dioxide?: number | null;
-        sulphur_dioxide?: number | null;
-        carbon_monoxide?: number | null;
-        ozone?: number | null;
-        us_aqi?: number | null;
-      };
-      hourly?: {
-        time?: string[];
-        pm2_5?: Array<number | null>;
-        pm10?: Array<number | null>;
-        us_aqi?: Array<number | null>;
-      };
-    };
-    const wxData = (await wxRes.json()) as {
-      current?: {
-        temperature_2m?: number | null;
-        relative_humidity_2m?: number | null;
-        wind_speed_10m?: number | null;
-        weather_code?: number;
-      };
-      hourly?: {
-        time?: string[];
-        temperature_2m?: Array<number | null>;
-        wind_speed_10m?: Array<number | null>;
-      };
-    };
-
-    const pollutants = {
-      pm25: aqData.current?.pm2_5 ?? null,
-      pm10: aqData.current?.pm10 ?? null,
-      no2: aqData.current?.nitrogen_dioxide ?? null,
-      so2: aqData.current?.sulphur_dioxide ?? null,
-      co: aqData.current?.carbon_monoxide ?? null,
-      o3: aqData.current?.ozone ?? null,
-    };
-
-    const temp = wxData.current?.temperature_2m ?? null;
-    const hum = wxData.current?.relative_humidity_2m ?? null;
-    const wind = wxData.current?.wind_speed_10m ?? null;
-    const isInversionLikely = Boolean(wind !== null && wind < 6.5 && temp !== null && temp < 18);
-
-    const hourlyForecast: HourlyForecastPoint[] = [];
-    const times = aqData.hourly?.time ?? [];
-    const nowMs = Date.now();
-    for (let i = 0; i < times.length && hourlyForecast.length < 12; i++) {
-      const tMs = Date.parse(times[i]);
-      if (Number.isNaN(tMs) || tMs < nowMs - 3600 * 1000) continue;
-      const pm25 = aqData.hourly?.pm2_5?.[i] ?? null;
-      const pm10 = aqData.hourly?.pm10?.[i] ?? null;
-      hourlyForecast.push({
-        timeIso: times[i],
-        hourLabel: times[i].slice(11, 16),
-        pm25,
-        pm10,
-        usAqi: aqData.hourly?.us_aqi?.[i] ?? computeAqiFromPollutants({ pm25, pm10 }, 'US_EPA'),
-        indiaAqi: computeAqiFromPollutants({ pm25, pm10 }, 'INDIA_NAQI'),
-        temperatureC: wxData.hourly?.temperature_2m?.[i] ?? null,
-        windSpeedKmh: wxData.hourly?.wind_speed_10m?.[i] ?? null,
+  const runLiveFetch = async (): Promise<SnapshotBase> => {
+    try {
+      const { snapshotBase } = await fetchOpenMeteoSnapshotBase({ city, region, country, latitude, longitude });
+      db.prepare(`
+        INSERT INTO environmental_cache (cache_key, latitude, longitude, payload_json, fetched_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(cache_key) DO UPDATE SET payload_json = excluded.payload_json, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at
+      `).run(
+        cacheKey,
+        latitude,
+        longitude,
+        JSON.stringify(snapshotBase),
+        snapshotBase.fetchedAt,
+        new Date(Date.now() + CACHE_TTL_MS).toISOString(),
+      );
+      recordMetric(db, 'open-meteo', 'success', Date.now() - startedAt, userId);
+      return snapshotBase;
+    } catch (primaryErr) {
+      logger.warn('environmental_api_error', {
+        city,
+        provider: primaryErr instanceof UpstreamHttpError ? primaryErr.provider : new URL(envConfig.airQualityApiBase).hostname,
+        status: primaryErr instanceof UpstreamHttpError ? primaryErr.status : undefined,
+        retryAfter: primaryErr instanceof UpstreamHttpError ? primaryErr.retryAfter : undefined,
+        cacheStatus,
+        message: primaryErr instanceof Error ? primaryErr.message : String(primaryErr),
       });
+
+      if (envConfig.openWeatherApiKey) {
+        try {
+          const secondaryBase = await fetchOpenWeatherSnapshotBase({ city, region, country, latitude, longitude });
+          db.prepare(`
+            INSERT INTO environmental_cache (cache_key, latitude, longitude, payload_json, fetched_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(cache_key) DO UPDATE SET payload_json = excluded.payload_json, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at
+          `).run(
+            cacheKey,
+            latitude,
+            longitude,
+            JSON.stringify(secondaryBase),
+            secondaryBase.fetchedAt,
+            new Date(Date.now() + CACHE_TTL_MS).toISOString(),
+          );
+          recordMetric(db, 'openweathermap', 'fallback', Date.now() - startedAt, userId);
+          return secondaryBase;
+        } catch (secondaryErr) {
+          logger.warn('environmental_secondary_api_error', {
+            city,
+            provider: 'api.openweathermap.org',
+            status: secondaryErr instanceof UpstreamHttpError ? secondaryErr.status : undefined,
+            message: secondaryErr instanceof Error ? secondaryErr.message : String(secondaryErr),
+          });
+        }
+      }
+
+      throw primaryErr;
+    }
+  };
+
+  try {
+    let pending = inFlightSnapshots.get(cacheKey);
+    if (!pending) {
+      pending = runLiveFetch().finally(() => {
+        inFlightSnapshots.delete(cacheKey);
+      });
+      inFlightSnapshots.set(cacheKey, pending);
     }
 
-    const computedAqi =
-      standard === 'US_EPA' && typeof aqData.current?.us_aqi === 'number'
-        ? aqData.current.us_aqi
-        : computeAqiFromPollutants(pollutants, standard);
-
-    const nowIso = new Date().toISOString();
-    const snapshotBase = {
-      location: { name: city, city, region, country, latitude, longitude },
-      pollutants,
-      weather: {
-        temperatureC: temp,
-        humidityPct: hum,
-        windSpeedKmh: wind,
-        conditionText: weatherCodeToText(wxData.current?.weather_code),
-        isInversionLikely,
-      },
-      hourlyForecast,
-      dataSource: 'Open-Meteo Air Quality & Weather API (Copernicus CAMS)',
-      observedAt: aqData.current?.time ? new Date(aqData.current.time).toISOString() : nowIso,
-      fetchedAt: nowIso,
-      isCached: false,
-      isStale: false,
-      isDemo: false,
-    };
-
-    db.prepare(`
-      INSERT INTO environmental_cache (cache_key, latitude, longitude, payload_json, fetched_at, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(cache_key) DO UPDATE SET payload_json = excluded.payload_json, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at
-    `).run(
-      cacheKey,
-      latitude,
-      longitude,
-      JSON.stringify(snapshotBase),
-      nowIso,
-      new Date(Date.now() + CACHE_TTL_MS).toISOString(),
-    );
-
-    recordMetric(db, 'open-meteo', 'success', Date.now() - startedAt, userId);
-
+    const snapshotBase = await pending;
+    const computedAqi = computeAqiFromPollutants(snapshotBase.pollutants, standard);
     return {
       ...snapshotBase,
+      location: { name: city, city, region, country, latitude, longitude },
       standard,
       aqi: getAqiSeverityMeta(computedAqi, standard),
     };
   } catch (err) {
     recordMetric(db, 'open-meteo', 'error', Date.now() - startedAt, userId);
-    logger.warn('environmental_api_error', { city, message: (err as Error).message });
 
     if (cachedRow) {
-      const parsed = JSON.parse(cachedRow.payload_json) as Omit<EnvironmentalSnapshot, 'standard' | 'aqi'>;
+      const parsed = JSON.parse(cachedRow.payload_json) as SnapshotBase;
       const aqiNum = computeAqiFromPollutants(parsed.pollutants, standard);
       return {
         ...parsed,
@@ -457,7 +700,7 @@ export async function getEnvironmentalSnapshot(
         isCached: true,
         isStale: true,
         isDemo: false,
-        staleReason: 'Live air quality provider timed out; showing last valid cached observation.',
+        staleReason: 'Live air quality provider rate-limited or timed out; showing last valid cached observation.',
       };
     }
 
