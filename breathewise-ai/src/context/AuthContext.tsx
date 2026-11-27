@@ -64,6 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [selectedLocation, setSelectedLocation] = useState<LocationSelection>(DEFAULT_LOCATION);
 
   useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
+
+  useEffect(() => {
     const root = document.documentElement;
     const apply = (mode: 'light' | 'dark') => {
       if (mode === 'dark') {

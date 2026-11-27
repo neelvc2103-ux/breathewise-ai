@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, MessageSquare, RefreshCw, Search, Wind } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { AqiStandard, DemoScenario, EnvironmentalSnapshot, ImpactSummary } from '../types/domain';
@@ -32,7 +32,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
   >([]);
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -54,11 +54,11 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiFetch, selectedLocation, demoScenario]);
 
   useEffect(() => {
     fetchDashboardData();
-  }, [selectedLocation.city, selectedLocation.latitude, selectedLocation.standard, demoScenario]);
+  }, [fetchDashboardData]);
 
   const handleCitySearch = async (e: React.FormEvent) => {
     e.preventDefault();

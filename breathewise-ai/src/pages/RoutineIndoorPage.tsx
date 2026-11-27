@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CalendarClock, CheckSquare, RefreshCw, ShieldAlert, Square } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { DailyRoutinePlan } from '../types/domain';
@@ -10,7 +10,7 @@ export function RoutinePlannerPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
 
-  const loadLatest = async () => {
+  const loadLatest = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiFetch<{ routine: DailyRoutinePlan | null }>('/api/v1/routines/latest');
@@ -20,11 +20,11 @@ export function RoutinePlannerPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiFetch]);
 
   useEffect(() => {
     loadLatest();
-  }, []);
+  }, [loadLatest]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -225,7 +225,7 @@ export function IndoorAirPage() {
     )
       .then((res) => setGuidance(res.guidance))
       .catch((err) => setError((err as Error).message));
-  }, [selectedLocation.city, selectedLocation.standard, demoScenario]);
+  }, [apiFetch, selectedLocation.city, selectedLocation.latitude, selectedLocation.longitude, selectedLocation.standard, demoScenario]);
 
   const rooms = ['All', 'Kitchen', 'Living Room', 'Bedroom', 'Study Room', 'Office', 'All Spaces'];
   const costs = ['All', 'No-cost', 'Low-cost', 'Moderate-cost', 'Equipment-based'];

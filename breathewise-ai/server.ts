@@ -14,7 +14,8 @@ export function createApp(customDbPath?: string) {
   seedDatabase(db);
 
   const app = express();
-  app.set('trust proxy', true);
+  // Trust the first reverse proxy hop (e.g., Render) without trusting arbitrary client-spoofed headers
+  app.set('trust proxy', 1);
 
   // Security headers (configured to allow AI Studio preview iframe embedding safely)
   app.use(

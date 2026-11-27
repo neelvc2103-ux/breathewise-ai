@@ -6,11 +6,71 @@ import type { AuthUser, UserRole } from '../../../types/domain';
 import { hashToken } from '../../db/seed';
 import { logger } from '../../utils/logger';
 
+const BCRYPT_COST_ROUNDS = 10;
+const DEFAULT_RATE_LIMIT_MAX_ATTEMPTS = 12;
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+const MAX_RATE_LIMIT_ENTRIES = 5000;
+const STANDARD_SESSION_TTL_MS = 24 * 3600 * 1000;
+const REMEMBER_ME_SESSION_TTL_MS = 14 * 24 * 3600 * 1000;
+const VERIFICATION_TOKEN_TTL_MS = 24 * 3600 * 1000;
+const PASSWORD_RESET_TOKEN_TTL_MS = 3600 * 1000;
+const MAX_USER_AGENT_LENGTH = 160;
+const MAX_IP_LENGTH = 64;
+
+interface UserAuthRow {
+  id: string;
+  full_name: string;
+  email: string;
+  role: UserRole;
+  email_verified: number;
+  onboarding_completed: number;
+  created_at: string;
+}
+
 // In-memory rate limiter for brute-force protection on auth endpoints
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
-export function checkAuthRateLimit(key: string, maxAttempts = 12, windowMs = 5 * 60 * 1000): boolean {
+function pruneExpiredRateLimits(now: number): void {
+  for (const [k, v] of loginAttempts.entries()) {
+    if (v.resetAt < now) {
+      loginAttempts.delete(k);
+    }
+  }
+}
+
+export function mapRowToAuthUser(row: UserAuthRow): AuthUser {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    email: row.email,
+    role: row.role,
+    emailVerified: row.email_verified === 1,
+    onboardingCompleted: row.onboarding_completed === 1,
+    createdAt: row.created_at,
+  };
+}
+
+export function hashPassword(plainPassword: string): string {
+  return bcrypt.hashSync(plainPassword, BCRYPT_COST_ROUNDS);
+}
+
+export function verifyPassword(plainPassword: string, passwordHash: string): boolean {
+  return bcrypt.compareSync(plainPassword, passwordHash);
+}
+
+/**
+ * Checks and increments an in-memory sliding window rate limit for a given key.
+ * Returns false once maxAttempts is reached within the active window.
+ */
+export function checkAuthRateLimit(
+  key: string,
+  maxAttempts = DEFAULT_RATE_LIMIT_MAX_ATTEMPTS,
+  windowMs = DEFAULT_RATE_LIMIT_WINDOW_MS,
+): boolean {
   const now = Date.now();
+  if (loginAttempts.size >= MAX_RATE_LIMIT_ENTRIES) {
+    pruneExpiredRateLimits(now);
+  }
   const entry = loginAttempts.get(key);
   if (!entry || entry.resetAt < now) {
     loginAttempts.set(key, { count: 1, resetAt: now + windowMs });
@@ -53,7 +113,7 @@ export function registerUser(
 
   const userId = crypto.randomUUID();
   const now = new Date().toISOString();
-  const passwordHash = bcrypt.hashSync(input.password, 10);
+  const passwordHash = hashPassword(input.password);
 
   db.prepare(`
     INSERT INTO users (id, full_name, email, password_hash, role, email_verified, onboarding_completed, accepted_terms_at, is_demo, created_at, updated_at)
@@ -64,7 +124,7 @@ export function registerUser(
   db.prepare('INSERT INTO notification_preferences (user_id, updated_at) VALUES (?, ?)').run(userId, now);
 
   const verificationToken = crypto.randomBytes(24).toString('hex');
-  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS).toISOString();
   db.prepare(`
     INSERT INTO verification_tokens (id, user_id, token_hash, expires_at, created_at)
     VALUES (?, ?, ?, ?, ?)
@@ -95,14 +155,23 @@ export function createSessionForUser(
   ipAddress = '',
 ): { token: string; expiresAt: string } {
   const rawToken = crypto.randomBytes(32).toString('hex');
-  const ttlMs = rememberMe ? 14 * 24 * 3600 * 1000 : 24 * 3600 * 1000;
+  const ttlMs = rememberMe ? REMEMBER_ME_SESSION_TTL_MS : STANDARD_SESSION_TTL_MS;
   const expiresAt = new Date(Date.now() + ttlMs).toISOString();
   const now = new Date().toISOString();
 
   db.prepare(`
     INSERT INTO sessions (id, user_id, token_hash, user_agent, ip_address, remember_me, expires_at, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(crypto.randomUUID(), userId, hashToken(rawToken), userAgent.slice(0, 160), ipAddress.slice(0, 64), rememberMe ? 1 : 0, expiresAt, now);
+  `).run(
+    crypto.randomUUID(),
+    userId,
+    hashToken(rawToken),
+    userAgent.slice(0, MAX_USER_AGENT_LENGTH),
+    ipAddress.slice(0, MAX_IP_LENGTH),
+    rememberMe ? 1 : 0,
+    expiresAt,
+    now,
+  );
 
   return { token: rawToken, expiresAt };
 }
@@ -117,20 +186,9 @@ export function authenticateUser(
 ): { user: AuthUser; token: string; expiresAt: string } {
   const row = db
     .prepare('SELECT id, full_name, email, password_hash, role, email_verified, onboarding_completed, created_at FROM users WHERE email = ?')
-    .get(email) as
-    | {
-        id: string;
-        full_name: string;
-        email: string;
-        password_hash: string;
-        role: UserRole;
-        email_verified: number;
-        onboarding_completed: number;
-        created_at: string;
-      }
-    | undefined;
+    .get(email) as (UserAuthRow & { password_hash: string }) | undefined;
 
-  if (!row || !bcrypt.compareSync(password, row.password_hash)) {
+  if (!row || !verifyPassword(password, row.password_hash)) {
     throw new Error('Invalid email or password.');
   }
 
@@ -138,15 +196,7 @@ export function authenticateUser(
   writeAuditLog(db, row.id, 'USER_LOGIN', 'session', row.id, 'Successful password authentication', ipAddress);
 
   return {
-    user: {
-      id: row.id,
-      fullName: row.full_name,
-      email: row.email,
-      role: row.role,
-      emailVerified: row.email_verified === 1,
-      onboardingCompleted: row.onboarding_completed === 1,
-      createdAt: row.created_at,
-    },
+    user: mapRowToAuthUser(row),
     token: session.token,
     expiresAt: session.expiresAt,
   };
@@ -178,7 +228,7 @@ export function createPasswordResetToken(db: DatabaseSync, email: string): { res
 
   const rawToken = crypto.randomBytes(24).toString('hex');
   const now = new Date().toISOString();
-  const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS).toISOString();
 
   db.prepare(`
     INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at)
@@ -200,12 +250,28 @@ export function resetPasswordWithToken(db: DatabaseSync, rawToken: string, newPa
   }
 
   const now = new Date().toISOString();
-  const newHash = bcrypt.hashSync(newPassword, 10);
+  const newHash = hashPassword(newPassword);
   db.prepare('UPDATE password_reset_tokens SET used_at = ? WHERE id = ?').run(now, row.id);
   db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').run(newHash, now, row.user_id);
   // Revoke all existing sessions after password reset
   db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now, row.user_id);
   writeAuditLog(db, row.user_id, 'PASSWORD_RESET_COMPLETED', 'user', row.user_id, 'Password updated and prior sessions revoked');
+  return true;
+}
+
+export function changeUserPassword(
+  db: DatabaseSync,
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+): boolean {
+  const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId) as { password_hash: string } | undefined;
+  if (!row || !verifyPassword(currentPassword, row.password_hash)) {
+    return false;
+  }
+  const newHash = hashPassword(newPassword);
+  db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').run(newHash, new Date().toISOString(), userId);
+  writeAuditLog(db, userId, 'PASSWORD_CHANGED', 'user', userId, 'User changed account password');
   return true;
 }
 
@@ -222,20 +288,7 @@ export function getUserFromBearerToken(db: DatabaseSync, authHeader?: string): {
       JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ?
     `)
-    .get(hashToken(rawToken)) as
-    | {
-        session_id: string;
-        expires_at: string;
-        revoked_at: string | null;
-        id: string;
-        full_name: string;
-        email: string;
-        role: UserRole;
-        email_verified: number;
-        onboarding_completed: number;
-        created_at: string;
-      }
-    | undefined;
+    .get(hashToken(rawToken)) as (UserAuthRow & { session_id: string; expires_at: string; revoked_at: string | null }) | undefined;
 
   if (!row || row.revoked_at || new Date(row.expires_at).getTime() < Date.now()) {
     return null;
@@ -243,15 +296,7 @@ export function getUserFromBearerToken(db: DatabaseSync, authHeader?: string): {
 
   return {
     sessionId: row.session_id,
-    user: {
-      id: row.id,
-      fullName: row.full_name,
-      email: row.email,
-      role: row.role,
-      emailVerified: row.email_verified === 1,
-      onboardingCompleted: row.onboarding_completed === 1,
-      createdAt: row.created_at,
-    },
+    user: mapRowToAuthUser(row),
   };
 }
 

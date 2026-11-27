@@ -186,3 +186,27 @@ export const notificationPrefSchema = z.object({
   weeklyReportEnabled: z.boolean(),
   unsubscribedAll: z.boolean(),
 });
+
+export const householdGoalSchema = z.object({
+  sharedGoal: z.string().trim().min(4, 'Goal description is too short.').max(240),
+});
+
+export const challengeProgressSchema = z.object({
+  amount: z.number().positive('Progress increment must be a positive number.').max(1000),
+});
+
+export const adminResourceSchema = z.object({
+  title: z.string().trim().min(4, 'Title and content are required.').max(160),
+  category: z.string().trim().min(1).max(60).default('General'),
+  summary: z.string().trim().max(400).optional().default(''),
+  content: z.string().trim().min(15, 'Title and content are required.').max(5000),
+  sourceOrganization: z.string().trim().min(1).max(120).default('WHO / EPA'),
+  sourceUrl: z
+    .string()
+    .trim()
+    .url('Source URL must be a valid URL.')
+    .refine((u) => u.startsWith('https://') || u.startsWith('http://'), {
+      message: 'Source URL must use http:// or https:// protocol.',
+    })
+    .default('https://www.who.int/'),
+});

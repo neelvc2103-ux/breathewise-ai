@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Activity, Shield, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types/domain';
@@ -21,7 +21,7 @@ export function AdminPage() {
   const [resContent, setResContent] = useState('');
   const [error, setError] = useState('');
 
-  const loadAdmin = async () => {
+  const loadAdmin = useCallback(async () => {
     try {
       if (isMod) {
         const rep = await apiFetch<{ reports: typeof reports }>('/api/v1/admin/moderation/reports');
@@ -40,11 +40,11 @@ export function AdminPage() {
     } catch (err) {
       setError((err as Error).message);
     }
-  };
+  }, [apiFetch, isMod, isSysAdmin]);
 
   useEffect(() => {
     loadAdmin();
-  }, [user?.role]);
+  }, [loadAdmin]);
 
   if (!isMod) {
     return (
